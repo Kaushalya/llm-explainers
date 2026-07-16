@@ -1,0 +1,2922 @@
+---
+layout: explainer
+title: "Speculative Decoding: EAGLE vs DFlash vs DSpark vs MTP"
+description: "An interactive explanation of speculative decoding variants, comparing EAGLE, DFlash, DSpark, and the MTP drafters used by Gemma 4 and GLM 5.2."
+category: blog
+categories:
+  - Machine Learning
+tags:
+  - speculative decoding
+  - language models
+  - inference
+comments: false
+published: true
+---
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121a2f;
+      --ink: #eef2ff;
+      --muted: #a8b2d7;
+      --line: #283456;
+      --soft: #18233f;
+      --accent: #7c8cff;
+      --good: #34d399;
+      --warn: #fbbf24;
+      --bad: #fb7185;
+      --shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+      --radius: 18px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      background:
+        radial-gradient(circle at top left, rgba(79, 95, 213, 0.14), transparent 32rem),
+        radial-gradient(circle at top right, rgba(24, 121, 78, 0.10), transparent 28rem),
+        var(--bg);
+      color: var(--ink);
+      line-height: 1.55;
+    }
+
+    header {
+      padding: 54px 22px 28px;
+      max-width: 1220px;
+      margin: 0 auto;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      border: 1px solid var(--line);
+      background: rgba(18, 26, 47, .78);
+      border-radius: 999px;
+      padding: 7px 12px;
+      color: var(--muted);
+      font-size: 13px;
+      backdrop-filter: blur(12px);
+    }
+
+    h1 {
+      max-width: 980px;
+      margin: 18px 0 12px;
+      font-size: clamp(34px, 5vw, 66px);
+      line-height: 1.02;
+      letter-spacing: -0.045em;
+    }
+
+    .lead {
+      max-width: 940px;
+      font-size: clamp(17px, 2vw, 21px);
+      color: var(--muted);
+      margin: 0;
+    }
+
+    main {
+      max-width: 1220px;
+      margin: 0 auto;
+      padding: 0 22px 54px;
+    }
+
+    section { margin: 24px 0; }
+
+    .grid { display: grid; gap: 18px; }
+    .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+    @media (max-width: 980px) {
+      .grid.three, .grid.two, .grid.four { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: rgba(18, 26, 47, .92);
+      border: 1px solid rgba(40, 52, 86, .95);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .card h2, .card h3 { margin-top: 0; letter-spacing: -0.025em; }
+    .card h2 { font-size: 24px; }
+    .card h3 { font-size: 19px; }
+
+    .muted { color: var(--muted); }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: #d7ddff;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .01em;
+      margin: 0 6px 8px 0;
+    }
+
+    .tag.good { background: #103325; color: var(--good); }
+    .tag.warn { background: #3d3111; color: var(--warn); }
+    .tag.bad { background: #3a1720; color: var(--bad); }
+
+    .example {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+      font-family: var(--mono);
+      font-size: 16px;
+      background: #060912;
+      color: #ffffff;
+      border-radius: 16px;
+      padding: 16px;
+      overflow-x: auto;
+    }
+
+    .cursor {
+      width: 10px;
+      height: 22px;
+      display: inline-block;
+      background: #ffffff;
+      animation: blink 1s steps(2, start) infinite;
+      vertical-align: -4px;
+      border-radius: 2px;
+    }
+
+    @keyframes blink { 50% { opacity: 0; } }
+
+    .sim {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 18px;
+      align-items: start;
+    }
+
+    @media (max-width: 980px) { .sim { grid-template-columns: 1fr; } }
+
+    .tabs { display: grid; gap: 10px; }
+
+    button, .button {
+      font: inherit;
+      border: 1px solid var(--line);
+      background: #16203a;
+      color: var(--ink);
+      border-radius: 14px;
+      padding: 13px 14px;
+      cursor: pointer;
+      text-align: left;
+      transition: transform .15s ease, background .15s ease, border-color .15s ease;
+    }
+
+    button:hover { transform: translateY(-1px); }
+    button.active {
+      border-color: rgba(79,95,213,.45);
+      background: #1a2750;
+      box-shadow: 0 8px 22px rgba(79,95,213,.14);
+    }
+
+    .controls {
+      display: grid;
+      gap: 14px;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+    }
+
+    label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--muted);
+      display: grid;
+      gap: 8px;
+    }
+
+    input[type="range"] { width: 100%; }
+
+    .stage {
+      min-height: 640px;
+      position: relative;
+    }
+
+    .stage-head {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 16px;
+    }
+
+    .stage-title {
+      margin: 0;
+      font-size: 27px;
+      letter-spacing: -0.035em;
+    }
+
+    .stage-sub {
+      margin: 5px 0 0;
+      color: var(--muted);
+    }
+
+    .legend {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      min-width: 220px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 5px 9px;
+      font-size: 12px;
+      color: var(--muted);
+      background: rgba(18,26,47,.9);
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      display: inline-block;
+      background: var(--accent);
+    }
+    .dot.accept { background: var(--good); }
+    .dot.reject { background: var(--bad); }
+    .dot.drop { background: #888da8; }
+
+    .stepper {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 14px 0 20px;
+      flex-wrap: wrap;
+    }
+
+    .stepper button {
+      text-align: center;
+      padding: 10px 13px;
+      border-radius: 12px;
+      font-weight: 700;
+    }
+
+    .progress {
+      flex: 1;
+      min-width: 180px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--soft);
+      overflow: hidden;
+    }
+
+    .bar {
+      height: 100%;
+      background: linear-gradient(90deg, #7c8cff, #34d399);
+      width: 0%;
+      transition: width .25s ease;
+    }
+
+    .viz {
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, #121a2f, #0f172b);
+      border-radius: 18px;
+      padding: 18px;
+      overflow: hidden;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 12px 0;
+      flex-wrap: wrap;
+    }
+
+    .row-title {
+      width: 160px;
+      flex: 0 0 160px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+
+    .token {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 66px;
+      padding: 11px 13px;
+      border-radius: 13px;
+      border: 1px solid var(--line);
+      background: #16203a;
+      font-family: var(--mono);
+      font-size: 14px;
+      font-weight: 800;
+      box-shadow: 0 8px 18px rgba(0,0,0,.28);
+      position: relative;
+    }
+
+    .token.long { min-width: 130px; }
+    .token.small { min-width: 48px; padding: 8px 10px; font-size: 12px; }
+    .token.mask { background: #1a2237; color: #97a3c7; border-style: dashed; }
+    .token.feature { background: #1a2750; border-color: #cdd3ff; color: #b8c3ff; }
+    .token.base { background: #1a2750; border-color: #cdd3ff; }
+    .token.seq { background: #102a24; border-color: #bde8ce; }
+    .token.accepted { background: #103325; border-color: #99d6b3; color: var(--good); }
+    .token.rejected { background: #3a1720; border-color: #ffb3a7; color: var(--bad); text-decoration: line-through; }
+    .token.dropped { background: #20263b; border-color: #ccd0df; color: #a1abc8; opacity: .72; }
+    .token.corrected { background: #3d3111; border-color: #ffd37a; color: #ffd977; }
+
+    .conf {
+      display: block;
+      position: absolute;
+      bottom: -19px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: var(--sans);
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+      font-weight: 700;
+    }
+
+    .note {
+      margin-top: 22px;
+      padding: 14px;
+      border-radius: 14px;
+      background: #10182e;
+      color: var(--muted);
+      border: 1px solid var(--line);
+    }
+
+    .tree {
+      display: grid;
+      place-items: center;
+      gap: 8px;
+      margin: 16px 0;
+      min-height: 180px;
+    }
+
+    .tree-level {
+      display: flex;
+      justify-content: center;
+      gap: 18px;
+      width: 100%;
+      flex-wrap: wrap;
+    }
+
+    .branch { display: grid; justify-items: center; gap: 8px; padding: 8px; border-radius: 14px; }
+    .branch.dim { opacity: .45; }
+    .connector { width: 2px; height: 16px; background: var(--line); }
+
+    .mini-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 14px;
+      overflow: hidden;
+      border-radius: 14px;
+    }
+
+    .mini-table th, .mini-table td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .mini-table th {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      background: #10182e;
+    }
+
+    .mini-table tr:last-child td { border-bottom: 0; }
+    .compare td:first-child { font-weight: 800; width: 160px; }
+
+    .pipeline {
+      display: grid;
+      gap: 10px;
+      margin: 16px 0;
+    }
+
+    .flow {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #16203a;
+    }
+
+    .arrow { color: var(--muted); font-weight: 900; }
+
+    .dimbox {
+      border: 1px dashed #c9cde2;
+      background: #10182e;
+      padding: 10px;
+      border-radius: 12px;
+      font-family: var(--mono);
+      font-size: 13px;
+      color: #d7ddff;
+    }
+
+
+    .math {
+      font-family: "Cambria Math", "STIX Two Math", "Times New Roman", serif;
+      font-size: 1.08em;
+      letter-spacing: 0.01em;
+      color: #f2f5ff;
+      white-space: nowrap;
+    }
+    .math .mi { font-style: italic; }
+    .math .rm { font-style: normal; }
+    .math sup, .math sub {
+      font-size: 0.72em;
+      line-height: 0;
+      position: relative;
+      vertical-align: baseline;
+    }
+    .math sup { top: -0.52em; }
+    .math sub { bottom: -0.18em; }
+    .token .math { font-size: 1em; }
+
+    .callout {
+      border-left: 4px solid var(--accent);
+      padding: 12px 14px;
+      background: #162447;
+      border-radius: 12px;
+      color: #d7ddff;
+    }
+
+    .footer {
+      color: var(--muted);
+      font-size: 13px;
+      padding: 18px 0 0;
+    }
+
+    .specdiag {
+      display: grid;
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .specdiag-flow {
+      display: grid;
+      grid-template-columns: 1fr 56px 1fr 56px 1fr 56px 1fr;
+      gap: 10px;
+      align-items: center;
+    }
+
+    @media (max-width: 1100px) {
+      .specdiag-flow {
+        grid-template-columns: 1fr;
+      }
+      .spec-arrowbox {
+        min-height: 34px;
+        transform: rotate(90deg);
+        justify-self: center;
+      }
+    }
+
+    .spec-box {
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, #121a2f, #10182e);
+      border-radius: 18px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+      min-height: 210px;
+    }
+
+    .spec-box h3 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      letter-spacing: -0.02em;
+    }
+
+    .spec-kicker {
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .spec-arrowbox {
+      display: grid;
+      place-items: center;
+      color: var(--accent);
+      font-size: 28px;
+      font-weight: 900;
+    }
+
+    .tokenline {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 10px 0;
+    }
+
+    .tokenstack {
+      display: grid;
+      gap: 10px;
+    }
+
+    .subtle {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .fade-in { animation: fade .25s ease; }
+
+    @keyframes fade {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    code {
+      font-family: var(--mono);
+      background: #1e2a4a;
+      color: #e9edff;
+      padding: 2px 5px;
+      border-radius: 6px;
+    }
+
+    pre code {
+      background: transparent;
+      color: inherit;
+      padding: 0;
+      border-radius: 0;
+    }
+
+    pre {
+      background: #060912;
+      color: #f7f9ff;
+      padding: 14px;
+      border-radius: 14px;
+      overflow-x: auto;
+      font-size: 13px;
+      border: 1px solid #283456;
+    }
+
+    /* Visual refresh: editorial research lab */
+    :root {
+      --bg: #071018;
+      --panel: #0e1a25;
+      --ink: #f4f7f4;
+      --muted: #9eacb4;
+      --line: rgba(161, 184, 194, .18);
+      --soft: rgba(158, 172, 180, .09);
+      --accent: #9b8cff;
+      --accent-2: #65e6c4;
+      --good: #65e6a4;
+      --warn: #ffc86b;
+      --bad: #ff7e91;
+      --shadow: 0 24px 70px rgba(0, 0, 0, .3);
+      --radius: 24px;
+    }
+
+    html { scroll-behavior: smooth; color-scheme: dark; }
+
+    body {
+      min-width: 320px;
+      background:
+        radial-gradient(circle at 8% 5%, rgba(155, 140, 255, .14), transparent 27rem),
+        radial-gradient(circle at 92% 12%, rgba(101, 230, 196, .11), transparent 25rem),
+        linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px),
+        var(--bg);
+      background-size: auto, auto, 48px 48px, 48px 48px, auto;
+      color: var(--ink);
+      line-height: 1.65;
+      text-rendering: optimizeLegibility;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(180deg, transparent 55%, rgba(7, 16, 24, .7));
+      z-index: -1;
+    }
+
+    ::selection { background: rgba(155, 140, 255, .35); color: #fff; }
+    a { color: #9eeed8; text-underline-offset: 3px; }
+    a:hover { color: #d0fff3; }
+
+    header {
+      position: relative;
+      max-width: 1280px;
+      min-height: 650px;
+      padding: 78px 32px 56px;
+      display: grid;
+      align-content: center;
+      isolation: isolate;
+    }
+
+    header::before {
+      content: "";
+      position: absolute;
+      width: min(42vw, 530px);
+      aspect-ratio: 1;
+      right: 1%;
+      top: 54px;
+      border: 1px solid rgba(155, 140, 255, .16);
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at center, rgba(155, 140, 255, .1) 0 2px, transparent 3px),
+        repeating-radial-gradient(circle, transparent 0 47px, rgba(101, 230, 196, .07) 48px 49px);
+      mask-image: linear-gradient(90deg, transparent, #000 34%);
+      z-index: -1;
+    }
+
+    header::after {
+      content: "DRAFT  /  VERIFY  /  ACCEPT";
+      position: absolute;
+      top: 124px;
+      right: 5.5%;
+      color: rgba(158, 172, 180, .42);
+      font: 700 10px/1 var(--mono);
+      letter-spacing: .22em;
+      writing-mode: vertical-rl;
+      z-index: -1;
+    }
+
+    .eyebrow {
+      width: max-content;
+      border-color: rgba(101, 230, 196, .25);
+      background: rgba(101, 230, 196, .07);
+      color: #b9f5e5;
+      padding: 8px 13px;
+      font: 700 11px/1.3 var(--mono);
+      letter-spacing: .07em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-2);
+      box-shadow: 0 0 14px var(--accent-2);
+    }
+
+    h1 {
+      max-width: 920px;
+      margin: 24px 0 20px;
+      font-size: clamp(46px, 7vw, 88px);
+      line-height: .94;
+      letter-spacing: -.062em;
+      text-wrap: balance;
+    }
+
+    h1 .title-vs { color: var(--muted); font-weight: 400; }
+    .lead { max-width: 760px; font-size: clamp(17px, 1.8vw, 21px); line-height: 1.6; color: #b7c2c8; }
+
+    .page-nav { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 28px; }
+
+    .page-nav a {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(14, 26, 37, .68);
+      color: var(--muted);
+      font: 700 11px/1.2 var(--mono);
+      letter-spacing: .04em;
+      text-decoration: none;
+      transition: color .2s ease, border-color .2s ease, transform .2s ease;
+    }
+
+    .page-nav a::after { content: "↘"; color: var(--accent-2); }
+    .page-nav a:hover { color: var(--ink); border-color: rgba(101, 230, 196, .35); transform: translateY(-2px); }
+
+    .example {
+      max-width: 980px;
+      margin-top: 34px;
+      gap: 10px;
+      border: 1px solid rgba(155, 140, 255, .24);
+      border-radius: 18px;
+      background: rgba(5, 11, 17, .76);
+      box-shadow: 0 22px 70px rgba(0,0,0,.3), inset 0 1px rgba(255,255,255,.04);
+      padding: 20px 22px;
+      font-size: 14px;
+      backdrop-filter: blur(16px);
+    }
+
+    .example > span:not(.cursor) {
+      color: #71818b;
+      font: 700 10px/1 var(--mono);
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    .example strong { padding: 6px 9px; border-radius: 8px; background: rgba(255,255,255,.055); color: #fff; }
+    .example strong:last-of-type { background: rgba(101, 230, 196, .1); color: #aef5e1; }
+
+    main { max-width: 1280px; padding: 0 32px 80px; }
+    section { margin: 34px 0; scroll-margin-top: 24px; }
+
+    .card {
+      position: relative;
+      overflow: hidden;
+      padding: clamp(22px, 3vw, 34px);
+      border-color: var(--line);
+      border-radius: var(--radius);
+      background: linear-gradient(145deg, rgba(17, 31, 44, .91), rgba(11, 22, 31, .94));
+      box-shadow: 0 1px rgba(255,255,255,.035) inset, var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto auto 0;
+      width: 120px;
+      height: 1px;
+      background: linear-gradient(90deg, var(--accent-2), transparent);
+    }
+
+    .card h2 { margin-bottom: 8px; font-size: clamp(24px, 2.8vw, 34px); letter-spacing: -.04em; }
+    .card h3 { letter-spacing: -.025em; }
+    .card > h2 + .muted { max-width: 820px; margin-top: 0; }
+    .muted, .subtle { color: var(--muted); }
+
+    .overview-card > h2::before, .dimension-card > h2::before, .batch-card > h2::before, .mtp-card > h2::before, .lab-card > h2::before,
+    .comparison-card > h2::before, .algorithm-card > h2::before, .references-card > h2::before, .models-card > h2::before {
+      display: block;
+      margin-bottom: 9px;
+      color: var(--accent-2);
+      font: 700 10px/1 var(--mono);
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    .overview-card > h2::before { content: "01 / mental model"; }
+    .dimension-card > h2::before { content: "02 / notation"; }
+    .batch-card > h2::before { content: "03 / why it is faster"; }
+    .mtp-card > h2::before { content: "04 / target-attached MTP"; }
+    .lab-card > h2::before { content: "05 / interactive lab"; }
+    .comparison-card > h2::before { content: "06 / matrix"; }
+    .algorithm-card > h2::before { content: "07 / pseudocode"; }
+    .models-card > h2::before { content: "08 / 2026 model support"; }
+    .references-card > h2::before { content: "09 / further reading"; }
+
+    .specdiag { margin-top: 28px; }
+    .specdiag-flow { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .spec-arrowbox { display: none; }
+
+    .spec-box {
+      position: relative;
+      min-height: 250px;
+      padding: 19px;
+      border-color: var(--line);
+      border-radius: 18px;
+      background: rgba(5, 12, 18, .48);
+      box-shadow: none;
+      transition: border-color .2s ease, transform .2s ease;
+    }
+
+    .spec-box:hover { border-color: rgba(155, 140, 255, .34); transform: translateY(-3px); }
+
+    .spec-box:not(:last-child)::after {
+      content: "→";
+      position: absolute;
+      z-index: 2;
+      right: -19px;
+      top: 50%;
+      display: grid;
+      width: 26px;
+      height: 26px;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: #0d1923;
+      color: var(--accent-2);
+      font-size: 12px;
+    }
+
+    .spec-kicker { color: #83919a; font-family: var(--mono); font-size: 10px; letter-spacing: .1em; }
+    .spec-box h3 { font-size: 17px; }
+    .note { border: 1px solid rgba(101, 230, 196, .14); background: rgba(101, 230, 196, .055); color: #b3c0c6; }
+    .direction-note {
+      padding: 20px 22px;
+      font-size: clamp(16px, 1.7vw, 20px);
+      line-height: 1.6;
+    }
+    .direction-note strong { color: var(--accent-2); }
+    .dimension-card { background: linear-gradient(145deg, rgba(19, 29, 46, .95), rgba(12, 22, 31, .95)); }
+    .dimension-card .dimbox { min-height: 128px; }
+
+    .batch-card {
+      background:
+        radial-gradient(circle at 76% 25%, rgba(101, 230, 196, .08), transparent 24rem),
+        linear-gradient(145deg, rgba(15, 29, 39, .96), rgba(8, 18, 26, .97));
+    }
+
+    .speedup-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 54px minmax(0, 1fr);
+      gap: 16px;
+      align-items: stretch;
+      margin-top: 28px;
+    }
+
+    .speed-panel {
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(4, 11, 17, .48);
+    }
+
+    .speed-panel.fast {
+      border-color: rgba(101, 230, 196, .22);
+      background: linear-gradient(145deg, rgba(101, 230, 196, .065), rgba(4, 11, 17, .55));
+    }
+
+    .speed-kicker {
+      margin-bottom: 8px;
+      color: #7f9099;
+      font: 800 9px/1.3 var(--mono);
+      letter-spacing: .11em;
+      text-transform: uppercase;
+    }
+
+    .speed-panel h3 { margin: 0 0 18px; font-size: 20px; }
+    .pass-stack { display: grid; gap: 9px; }
+
+    .pass-row {
+      display: grid;
+      grid-template-columns: 82px minmax(0, 1fr) auto auto;
+      gap: 10px;
+      align-items: center;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: rgba(255,255,255,.025);
+    }
+
+    .pass-id {
+      color: #75858e;
+      font: 800 9px/1.3 var(--mono);
+      letter-spacing: .07em;
+      text-transform: uppercase;
+    }
+
+    .pass-context {
+      min-width: 0;
+      overflow: hidden;
+      color: #aebac0;
+      font: 700 11px/1.4 var(--mono);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pass-arrow { color: #6e7d85; font-family: var(--mono); }
+    .serial-wait {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin: 13px 0 0;
+      color: #7f8f98;
+      font: 700 10px/1.4 var(--mono);
+    }
+
+    .serial-wait::before {
+      content: "";
+      width: 28px;
+      height: 1px;
+      background: var(--bad);
+      box-shadow: 0 0 10px rgba(255,126,145,.35);
+    }
+
+    .versus {
+      display: grid;
+      place-items: center;
+      color: #788991;
+      font: 800 10px/1 var(--mono);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .versus span {
+      display: grid;
+      width: 38px;
+      height: 38px;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: #0b1720;
+    }
+
+    .draft-strip {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 13px;
+      padding: 10px;
+      overflow-x: auto;
+      border: 1px dashed rgba(155,140,255,.25);
+      border-radius: 11px;
+      background: rgba(155,140,255,.035);
+    }
+
+    .draft-strip-label {
+      flex: 0 0 auto;
+      margin-right: 3px;
+      color: #7f8f98;
+      font: 800 9px/1.3 var(--mono);
+      letter-spacing: .07em;
+      text-transform: uppercase;
+    }
+
+    .verify-matrix {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(76px, 1fr));
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(2,8,12,.35);
+    }
+
+    .verify-cell {
+      min-width: 76px;
+      padding: 11px 8px;
+      border-right: 1px solid var(--line);
+      text-align: center;
+    }
+
+    .verify-cell:last-child { border-right: 0; }
+
+    .verify-input {
+      display: block;
+      margin-bottom: 8px;
+      color: #7f8f98;
+      font: 700 10px/1.3 var(--mono);
+    }
+
+    .verify-predicts {
+      display: block;
+      color: #e1e7e9;
+      font: 800 12px/1.3 var(--mono);
+    }
+
+    .verify-verdict {
+      display: block;
+      margin-top: 6px;
+      color: var(--good);
+      font: 800 9px/1.2 var(--mono);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .verify-verdict.reject { color: var(--bad); }
+    .verify-verdict.ignore { color: #697982; }
+
+    .one-pass {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-top: 13px;
+      padding: 11px 12px;
+      border: 1px solid rgba(101,230,196,.18);
+      border-radius: 11px;
+      background: rgba(101,230,196,.055);
+      color: #a8b6bc;
+      font-size: 12px;
+    }
+
+    .one-pass strong {
+      flex: 0 0 auto;
+      color: var(--accent-2);
+      font: 800 10px/1.3 var(--mono);
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+
+    .batch-serving {
+      margin-top: 18px;
+      padding: clamp(18px, 2.5vw, 26px);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(4, 11, 17, .45);
+    }
+
+    .batch-serving-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 18px;
+    }
+
+    .batch-serving h3 { margin: 0; font-size: 21px; }
+    .batch-serving-head p { max-width: 610px; margin: 0; color: var(--muted); font-size: 13px; }
+
+    .batch-flow {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) 52px minmax(220px, .6fr);
+      gap: 14px;
+      align-items: center;
+    }
+
+    .request-batch {
+      display: grid;
+      gap: 7px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: rgba(2,8,12,.35);
+    }
+
+    .request-row {
+      display: grid;
+      grid-template-columns: 76px minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+    }
+
+    .request-id {
+      color: #75858e;
+      font: 800 9px/1.3 var(--mono);
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    .request-tokens {
+      display: flex;
+      gap: 5px;
+      min-width: 0;
+      overflow-x: auto;
+    }
+
+    .request-tokens .token { min-width: auto; padding: 6px 8px; font-size: 10px; }
+
+    .batch-arrow {
+      color: var(--accent-2);
+      font: 900 24px/1 var(--mono);
+      text-align: center;
+    }
+
+    .tensor-box {
+      padding: 18px;
+      border: 1px solid rgba(101,230,196,.25);
+      border-radius: 14px;
+      background: linear-gradient(145deg, rgba(101,230,196,.09), rgba(155,140,255,.055));
+      text-align: center;
+    }
+
+    .tensor-shape {
+      display: block;
+      color: #d7fff4;
+      font: 800 clamp(18px, 2.2vw, 26px)/1.2 var(--mono);
+    }
+
+    .tensor-label {
+      display: block;
+      margin-top: 7px;
+      color: #8fa0a8;
+      font: 700 9px/1.4 var(--mono);
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    .speed-result {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .speed-metric {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: rgba(255,255,255,.025);
+    }
+
+    .speed-metric strong {
+      display: block;
+      margin-bottom: 5px;
+      color: #e5ebed;
+      font-size: 13px;
+    }
+
+    .speed-metric span { color: var(--muted); font-size: 12px; }
+
+    .speed-caveat {
+      margin-top: 12px;
+      padding: 13px 15px;
+      border-left: 2px solid var(--warn);
+      border-radius: 0 10px 10px 0;
+      background: rgba(255,200,107,.055);
+      color: #aeb9be;
+      font-size: 12px;
+    }
+
+    .methods-grid { gap: 14px; }
+    .method-card { min-height: 390px; padding: 26px; transition: transform .25s ease, border-color .25s ease; }
+    .method-card:hover { transform: translateY(-5px); }
+
+    .method-card::after {
+      position: absolute;
+      right: 18px;
+      top: 10px;
+      color: rgba(255,255,255,.035);
+      font: 800 clamp(72px, 9vw, 128px)/1 var(--sans);
+      letter-spacing: -.08em;
+      pointer-events: none;
+    }
+
+    .method-card.eagle {
+      --method: #d06460;
+      background: linear-gradient(145deg, #3b2133, #24131f);
+    }
+    .method-card.dflash {
+      --method: #d06460;
+      background: linear-gradient(145deg, #70364f, #422232);
+    }
+    .method-card.dspark {
+      --method: #ef8a80;
+      background: linear-gradient(145deg, #9e3e42, #64272f);
+    }
+    .method-card.mtp {
+      --method: #ffd0c9;
+      background: linear-gradient(145deg, #ae4e4f, #7b343d);
+    }
+    .method-card:hover { border-color: var(--method); }
+    .method-card p { color: rgba(255,255,255,.82); }
+    .method-card.eagle::after { content: "E"; }
+    .method-card.dflash::after { content: "D"; }
+    .method-card.dspark::after { content: "S"; }
+    .method-card.mtp::after { content: "M"; }
+    .method-card::before { width: 50%; background: linear-gradient(90deg, var(--method), transparent); }
+    .method-card h3 { position: relative; z-index: 1; margin-bottom: 14px; font-size: 25px; }
+    .method-card .dimbox { margin-top: 22px; }
+
+    .tag {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.04);
+      color: #c7d0d5;
+      font: 700 10px/1.4 var(--mono);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .tag.good { border-color: rgba(101,230,164,.18); background: rgba(101,230,164,.075); }
+    .tag.warn { border-color: rgba(255,200,107,.18); background: rgba(255,200,107,.075); }
+
+    .dimbox {
+      border: 1px solid var(--line);
+      border-left: 2px solid rgba(155, 140, 255, .55);
+      border-radius: 10px;
+      background: rgba(4, 10, 15, .46);
+      color: #cbd4d8;
+      line-height: 1.75;
+    }
+
+    .lab-card {
+      padding: clamp(22px, 3.5vw, 42px);
+      background: linear-gradient(150deg, rgba(15, 28, 39, .97), rgba(7, 16, 24, .98));
+    }
+
+    .sim { grid-template-columns: 250px minmax(0, 1fr); gap: 30px; margin-top: 30px; }
+    .sim aside { position: sticky; top: 20px; align-self: start; }
+    .tabs { gap: 8px; }
+
+    button, .button {
+      border-color: var(--line);
+      border-radius: 12px;
+      background: rgba(255,255,255,.035);
+      color: #d9e0e3;
+    }
+
+    button:hover:not(:disabled) { border-color: rgba(155,140,255,.4); background: rgba(155,140,255,.08); }
+    button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 3px; }
+    button:disabled { cursor: not-allowed; opacity: .35; }
+
+    .tabs button { position: relative; padding: 15px 14px 15px 44px; font-weight: 750; }
+    .tabs button::before {
+      content: attr(data-index);
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #697983;
+      font: 700 10px/1 var(--mono);
+    }
+
+    .tabs button.active {
+      border-color: rgba(101,230,196,.28);
+      background: linear-gradient(90deg, rgba(101,230,196,.11), rgba(155,140,255,.07));
+      color: #fff;
+      box-shadow: inset 2px 0 var(--accent-2), 0 12px 30px rgba(0,0,0,.16);
+    }
+
+    .controls { margin-top: 20px; padding-top: 20px; }
+    .controls[hidden] { display: none; }
+    .controls label { font: 700 10px/1.4 var(--mono); letter-spacing: .04em; text-transform: uppercase; }
+    input[type="range"] { accent-color: var(--accent-2); }
+
+    .callout {
+      border: 1px solid rgba(155,140,255,.16);
+      border-left: 3px solid var(--accent);
+      background: rgba(155,140,255,.06);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .stage { min-width: 0; min-height: 570px; }
+    .stage-head { padding-bottom: 20px; border-bottom: 1px solid var(--line); }
+    .stage-title { font-size: clamp(26px, 3vw, 38px); }
+    .stage-sub { max-width: 650px; }
+    .legend { min-width: 0; }
+
+    .pill {
+      border-color: var(--line);
+      background: rgba(4,10,15,.5);
+      font: 700 9px/1.4 var(--mono);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .stepper { margin: 18px 0; }
+    .stepper button { min-width: 102px; }
+    .progress { height: 4px; background: rgba(255,255,255,.07); }
+    .bar { background: linear-gradient(90deg, var(--accent), var(--accent-2)); box-shadow: 0 0 16px rgba(101,230,196,.4); }
+    #stepCount { color: var(--muted); font: 700 11px/1 var(--mono); }
+
+    .viz {
+      min-height: 390px;
+      padding: clamp(18px, 2.5vw, 28px);
+      border-color: var(--line);
+      border-radius: 18px;
+      background:
+        linear-gradient(rgba(255,255,255,.017) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.017) 1px, transparent 1px),
+        rgba(4, 11, 17, .58);
+      background-size: 28px 28px;
+      box-shadow: inset 0 1px rgba(255,255,255,.025);
+    }
+
+    .viz > h3 { margin-bottom: 24px; font-size: 18px; }
+    .row { gap: 10px; padding: 10px 0; margin: 2px 0; border-bottom: 1px dashed rgba(161,184,194,.12); }
+    .row:last-child { border-bottom: 0; }
+    .row-title { width: 130px; flex-basis: 130px; color: #71818b; font: 800 9px/1.4 var(--mono); letter-spacing: .09em; }
+
+    .token {
+      min-width: 58px;
+      padding: 9px 11px;
+      border-color: rgba(161,184,194,.2);
+      border-radius: 9px;
+      background: #142330;
+      box-shadow: 0 6px 16px rgba(0,0,0,.2), inset 0 1px rgba(255,255,255,.04);
+      font-size: 13px;
+    }
+
+    .token.mask { background: rgba(255,255,255,.025); color: #74848e; }
+    .token.feature, .token.base { border-color: rgba(155,140,255,.35); background: rgba(155,140,255,.1); color: #c8c0ff; }
+    .token.seq { border-color: rgba(101,230,196,.3); background: rgba(101,230,196,.08); color: #baf5e5; }
+    .token.accepted { border-color: rgba(101,230,164,.35); background: rgba(101,230,164,.1); color: #86edb8; }
+    .token.rejected { border-color: rgba(255,126,145,.38); background: rgba(255,126,145,.1); color: #ff9caa; }
+    .token.dropped { border-color: rgba(161,184,194,.13); background: rgba(161,184,194,.055); color: #6f7d86; }
+    .token.corrected { border-color: rgba(255,200,107,.35); background: rgba(255,200,107,.1); color: #ffd68f; }
+
+    .flow { border-color: var(--line); background: rgba(13, 26, 36, .7); }
+    .arrow { color: #74848d; font: 800 11px/1.4 var(--mono); }
+
+    .mini-table {
+      display: block;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+    }
+
+    .mini-table tbody { display: table; width: 100%; min-width: 780px; border-collapse: collapse; }
+    .compare tbody { min-width: 1180px; }
+    .mini-table th { background: rgba(4,10,15,.6); color: #83919a; font: 800 9px/1.4 var(--mono); letter-spacing: .08em; }
+    .mini-table td, .mini-table th { border-color: var(--line); padding: 14px; }
+    .compare td:first-child { color: #e5eaec; }
+
+    pre {
+      min-height: 285px;
+      border-color: var(--line);
+      border-radius: 14px;
+      background: rgba(4,10,15,.7);
+      color: #cbd5d9;
+      line-height: 1.7;
+    }
+
+    code { background: rgba(155,140,255,.1); color: #d8d2ff; }
+    .math { color: #f2f5f5; }
+    .references-card li { padding: 7px 0 7px 8px; }
+    .references-card li::marker { color: var(--accent-2); font-family: var(--mono); }
+
+    .footer {
+      max-width: 840px;
+      margin: 42px auto 0;
+      padding-top: 22px;
+      border-top: 1px solid var(--line);
+      text-align: center;
+    }
+
+    @media (max-width: 1100px) {
+      .specdiag-flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .spec-box:not(:last-child)::after { display: none; }
+      .methods-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 980px) {
+      header { min-height: auto; padding-top: 64px; }
+      .speedup-grid { grid-template-columns: 1fr; }
+      .versus { min-height: 30px; }
+      .versus span { width: auto; height: auto; border: 0; background: transparent; }
+      .batch-serving-head { display: grid; }
+      .batch-flow { grid-template-columns: 1fr; }
+      .batch-arrow { transform: rotate(90deg); }
+      .sim { grid-template-columns: 1fr; }
+      .sim aside { position: static; }
+      .tabs { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .tabs button { padding: 13px 8px; text-align: center; }
+      .tabs button::before { display: none; }
+      .controls { grid-template-columns: minmax(220px, 1fr) 1.5fr; align-items: center; }
+      .stage { min-height: 0; }
+    }
+
+    @media (max-width: 680px) {
+      header { padding: 42px 18px 34px; }
+      header::before, header::after { display: none; }
+      h1 { font-size: clamp(42px, 15vw, 64px); }
+      h1 .title-method { display: block; }
+      .eyebrow { max-width: 100%; font-size: 9px; }
+      .example { align-items: flex-start; padding: 16px; }
+      .example > span:not(.cursor) { flex-basis: 100%; margin-top: 5px; }
+      main { padding: 0 14px 54px; }
+      section { margin: 18px 0; }
+      .card { border-radius: 18px; }
+      .specdiag-flow { grid-template-columns: 1fr; }
+      .spec-box, .method-card { min-height: auto; }
+      .methods-grid { grid-template-columns: 1fr; }
+      .speed-panel { padding: 16px; }
+      .pass-row { grid-template-columns: 68px minmax(0, 1fr) auto auto; }
+      .speed-result { grid-template-columns: 1fr; }
+      .request-row { grid-template-columns: 1fr; }
+      .tabs { grid-template-columns: 1fr; }
+      .tabs button { text-align: left; }
+      .controls { grid-template-columns: 1fr; }
+      .stage-head { display: grid; }
+      .legend { justify-content: flex-start; }
+      .stepper { display: grid; grid-template-columns: 1fr 1fr; }
+      .stepper button { min-width: 0; }
+      .progress { grid-column: 1 / -1; grid-row: 2; }
+      #stepCount { position: absolute; opacity: 0; pointer-events: none; }
+      .row { align-items: flex-start; }
+      .row-title { width: 100%; flex-basis: 100%; }
+      .viz, pre { min-height: 0; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+      }
+    }
+
+    /* Light explainer palette, driven by the shared site theme toggle. */
+    :root[data-theme="light"] {
+      --bg: #f1f6f4;
+      --panel: #ffffff;
+      --ink: #12232a;
+      --muted: #60727a;
+      --line: rgba(29, 63, 72, .16);
+      --soft: rgba(37, 74, 82, .07);
+      --accent: #6f5bd5;
+      --accent-2: #087f6c;
+      --good: #087f50;
+      --warn: #a96808;
+      --bad: #c53f58;
+      --shadow: 0 24px 65px rgba(44, 73, 78, .12);
+      color-scheme: light;
+    }
+
+    :root[data-theme="light"] body {
+      background:
+        radial-gradient(circle at 8% 5%, rgba(111, 91, 213, .10), transparent 27rem),
+        radial-gradient(circle at 92% 12%, rgba(8, 127, 108, .09), transparent 25rem),
+        linear-gradient(rgba(23,72,78,.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(23,72,78,.035) 1px, transparent 1px),
+        var(--bg);
+      background-size: auto, auto, 48px 48px, 48px 48px, auto;
+    }
+
+    :root[data-theme="light"] body::before {
+      background: linear-gradient(180deg, transparent 55%, rgba(241, 246, 244, .72));
+    }
+
+    :root[data-theme="light"] header::before {
+      border-color: rgba(111, 91, 213, .16);
+      background:
+        radial-gradient(circle at center, rgba(111, 91, 213, .13) 0 2px, transparent 3px),
+        repeating-radial-gradient(circle, transparent 0 47px, rgba(8, 127, 108, .08) 48px 49px);
+    }
+
+    :root[data-theme="light"] header::after { color: rgba(66, 91, 99, .5); }
+    :root[data-theme="light"] .lead { color: #52666e; }
+
+    :root[data-theme="light"] .eyebrow {
+      border-color: rgba(8, 127, 108, .25);
+      background: rgba(8, 127, 108, .07);
+      color: #086c5c;
+    }
+
+    :root[data-theme="light"] .page-nav a {
+      background: rgba(255,255,255,.72);
+      color: #52666e;
+    }
+
+    :root[data-theme="light"] .page-nav a:hover { color: var(--ink); }
+
+    :root[data-theme="light"] .example {
+      border-color: rgba(111,91,213,.2);
+      background: rgba(255,255,255,.82);
+      box-shadow: 0 20px 55px rgba(44,73,78,.12), inset 0 1px rgba(255,255,255,.8);
+      color: var(--ink);
+    }
+
+    :root[data-theme="light"] .example > span:not(.cursor) { color: #73848a; }
+    :root[data-theme="light"] .example strong { background: rgba(28,63,72,.065); color: #1c3138; }
+    :root[data-theme="light"] .example strong:last-of-type { background: rgba(8,127,108,.1); color: #076a5a; }
+    :root[data-theme="light"] .cursor { background: #31515a; }
+
+    :root[data-theme="light"] .card {
+      background: linear-gradient(145deg, rgba(255,255,255,.94), rgba(246,250,249,.97));
+      box-shadow: 0 1px rgba(255,255,255,.9) inset, var(--shadow);
+    }
+
+    :root[data-theme="light"] .method-card.eagle {
+      background: linear-gradient(145deg, rgba(48,26,42,.17), rgba(48,26,42,.07)), #fff;
+    }
+    :root[data-theme="light"] .method-card.dflash {
+      background: linear-gradient(145deg, rgba(112,54,79,.2), rgba(112,54,79,.08)), #fff;
+    }
+    :root[data-theme="light"] .method-card.dspark {
+      background: linear-gradient(145deg, rgba(158,62,66,.2), rgba(158,62,66,.08)), #fff;
+    }
+    :root[data-theme="light"] .method-card.mtp {
+      background: linear-gradient(145deg, rgba(208,100,96,.22), rgba(208,100,96,.09)), #fff;
+    }
+    :root[data-theme="light"] .method-card p { color: #4d3b42; }
+
+    :root[data-theme="light"] .spec-box,
+    :root[data-theme="light"] .speed-panel,
+    :root[data-theme="light"] .batch-serving {
+      background: rgba(255,255,255,.64);
+    }
+
+    :root[data-theme="light"] .spec-box:not(:last-child)::after,
+    :root[data-theme="light"] .versus span {
+      background: #f7faf9;
+    }
+
+    :root[data-theme="light"] .spec-kicker,
+    :root[data-theme="light"] .speed-kicker,
+    :root[data-theme="light"] .pass-id,
+    :root[data-theme="light"] .request-id,
+    :root[data-theme="light"] .row-title,
+    :root[data-theme="light"] .draft-strip-label {
+      color: #6d8087;
+    }
+
+    :root[data-theme="light"] .note {
+      border-color: rgba(8,127,108,.16);
+      background: rgba(8,127,108,.055);
+      color: #566a71;
+    }
+
+    :root[data-theme="light"] .dimension-card {
+      background: linear-gradient(145deg, rgba(247,247,255,.98), rgba(250,253,252,.98));
+    }
+
+    :root[data-theme="light"] .dimbox {
+      background: rgba(255,255,255,.7);
+      color: #41575f;
+    }
+
+    :root[data-theme="light"] .method-card::after { color: rgba(29,63,72,.045); }
+
+    :root[data-theme="light"] .tag {
+      background: rgba(29,63,72,.045);
+      color: #51656d;
+    }
+
+    :root[data-theme="light"] .batch-card {
+      background:
+        radial-gradient(circle at 76% 25%, rgba(8,127,108,.07), transparent 24rem),
+        linear-gradient(145deg, rgba(252,255,254,.97), rgba(243,249,247,.98));
+    }
+
+    :root[data-theme="light"] .speed-panel.fast {
+      border-color: rgba(8,127,108,.2);
+      background: linear-gradient(145deg, rgba(8,127,108,.055), rgba(255,255,255,.72));
+    }
+
+    :root[data-theme="light"] .pass-row,
+    :root[data-theme="light"] .speed-metric {
+      background: rgba(255,255,255,.62);
+    }
+
+    :root[data-theme="light"] .pass-context,
+    :root[data-theme="light"] .one-pass,
+    :root[data-theme="light"] .speed-caveat {
+      color: #556a72;
+    }
+
+    :root[data-theme="light"] .draft-strip {
+      border-color: rgba(111,91,213,.22);
+      background: rgba(111,91,213,.04);
+    }
+
+    :root[data-theme="light"] .verify-matrix,
+    :root[data-theme="light"] .request-batch {
+      background: rgba(255,255,255,.68);
+    }
+
+    :root[data-theme="light"] .verify-input,
+    :root[data-theme="light"] .tensor-label { color: #65787f; }
+    :root[data-theme="light"] .verify-predicts,
+    :root[data-theme="light"] .speed-metric strong { color: #20353c; }
+
+    :root[data-theme="light"] .one-pass {
+      border-color: rgba(8,127,108,.18);
+      background: rgba(8,127,108,.055);
+    }
+
+    :root[data-theme="light"] .tensor-box {
+      border-color: rgba(8,127,108,.22);
+      background: linear-gradient(145deg, rgba(8,127,108,.09), rgba(111,91,213,.05));
+    }
+
+    :root[data-theme="light"] .tensor-shape { color: #075f51; }
+
+    :root[data-theme="light"] .speed-caveat {
+      background: rgba(169,104,8,.06);
+    }
+
+    :root[data-theme="light"] .lab-card {
+      background: linear-gradient(150deg, rgba(250,253,252,.98), rgba(241,247,245,.98));
+    }
+
+    :root[data-theme="light"] button,
+    :root[data-theme="light"] .button {
+      background: rgba(255,255,255,.68);
+      color: #334b53;
+    }
+
+    :root[data-theme="light"] button:hover:not(:disabled) {
+      border-color: rgba(111,91,213,.35);
+      background: rgba(111,91,213,.07);
+    }
+
+    :root[data-theme="light"] .tabs button.active {
+      border-color: rgba(8,127,108,.25);
+      background: linear-gradient(90deg, rgba(8,127,108,.10), rgba(111,91,213,.06));
+      color: #183039;
+      box-shadow: inset 2px 0 var(--accent-2), 0 12px 30px rgba(44,73,78,.09);
+    }
+
+    :root[data-theme="light"] .callout {
+      border-color: rgba(111,91,213,.16);
+      background: rgba(111,91,213,.055);
+    }
+
+    :root[data-theme="light"] .pill {
+      background: rgba(255,255,255,.72);
+    }
+
+    :root[data-theme="light"] .progress { background: rgba(29,63,72,.08); }
+
+    :root[data-theme="light"] .viz {
+      background:
+        linear-gradient(rgba(29,63,72,.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(29,63,72,.025) 1px, transparent 1px),
+        rgba(255,255,255,.62);
+      background-size: 28px 28px;
+      box-shadow: inset 0 1px rgba(255,255,255,.8);
+    }
+
+    :root[data-theme="light"] .flow {
+      background: rgba(248,251,250,.85);
+    }
+
+    :root[data-theme="light"] .token {
+      border-color: rgba(29,63,72,.18);
+      background: #eef4f2;
+      color: #253d45;
+      box-shadow: 0 6px 16px rgba(44,73,78,.09), inset 0 1px rgba(255,255,255,.75);
+    }
+
+    :root[data-theme="light"] .token.mask { background: rgba(29,63,72,.035); color: #6d8087; }
+    :root[data-theme="light"] .token.feature,
+    :root[data-theme="light"] .token.base { border-color: rgba(111,91,213,.28); background: rgba(111,91,213,.08); color: #5745b5; }
+    :root[data-theme="light"] .token.seq { border-color: rgba(8,127,108,.27); background: rgba(8,127,108,.075); color: #086956; }
+    :root[data-theme="light"] .token.accepted { border-color: rgba(8,127,80,.28); background: rgba(8,127,80,.08); color: #087448; }
+    :root[data-theme="light"] .token.rejected { border-color: rgba(197,63,88,.3); background: rgba(197,63,88,.075); color: #b0324b; }
+    :root[data-theme="light"] .token.dropped { border-color: rgba(29,63,72,.1); background: rgba(29,63,72,.04); color: #75868c; }
+    :root[data-theme="light"] .token.corrected { border-color: rgba(169,104,8,.28); background: rgba(169,104,8,.08); color: #925a07; }
+
+    :root[data-theme="light"] .mini-table th { background: rgba(235,242,240,.9); color: #61747b; }
+    :root[data-theme="light"] .compare td:first-child { color: #20353c; }
+
+    :root[data-theme="light"] pre {
+      background: rgba(255,255,255,.72);
+      color: #40565e;
+    }
+
+    :root[data-theme="light"] code { background: rgba(111,91,213,.08); color: #5948ac; }
+    :root[data-theme="light"] .math { color: #20353c; }
+  </style>
+<!-- explainer-body -->
+  <header>
+    <div class="eyebrow">Interactive explainer · draft inputs, hidden features, and dimensions</div>
+    <h1>Speculative Decoding:<br><span class="title-method">EAGLE <span class="title-vs">vs</span></span> <span class="title-method">DFlash <span class="title-vs">vs</span></span> <span class="title-method">DSpark <span class="title-vs">vs</span></span> <span class="title-method">MTP</span></h1>
+    <p class="lead">
+      This page compares how four speculative decoding drafter families use input features to propose tokens,
+      including the MTP designs used by Gemma 4 and GLM 5.2.
+      The running example treats <strong>“is”</strong> as the anchor/bonus token produced by the target model:
+    </p>
+    <div class="example" aria-label="running example">
+      <span>Verified context:</span>
+      <strong>The capital of France</strong>
+      <span>→ target emits anchor:</span>
+      <strong>is</strong>
+      <span>→ drafter proposes:</span>
+      <strong>Paris . It is</strong><span class="cursor"></span>
+    </div>
+    <nav class="page-nav" aria-label="On this page">
+      <a href="#overview">Mental model</a>
+      <a href="#why-faster">Why it is faster</a>
+      <a href="#methods">Compare methods</a>
+      <a href="#mtp">MTP</a>
+      <a href="#playground">Run the lab</a>
+      <a href="#references">Sources</a>
+    </nav>
+  </header>
+
+  <main>
+    <section id="overview" class="card overview-card">
+      <h2>How speculative decoding works</h2>
+      <p class="muted">
+        The draft model proposes several future tokens cheaply, and the target model verifies them in parallel.
+        The final emitted text is the longest accepted prefix, plus a corrected token if a mismatch occurs.
+      </p>
+
+      <div class="specdiag">
+        <div class="specdiag-flow">
+          <div class="spec-box">
+            <div class="spec-kicker">1 · verified context</div>
+            <h3>Start from the current prefix</h3>
+            <div class="tokenline">
+              <span class="token">The</span>
+              <span class="token">capital</span>
+              <span class="token">of</span>
+              <span class="token">France</span>
+              <span class="token accepted">is</span>
+            </div>
+            <p class="subtle">
+              The target model has already produced the anchor/bonus token <code>is</code>.
+              Now we want the next few tokens after it.
+            </p>
+          </div>
+
+          <div class="spec-arrowbox">→</div>
+
+          <div class="spec-box">
+            <div class="spec-kicker">2 · cheap drafting</div>
+            <h3>Draft model proposes a block</h3>
+            <div class="tokenline">
+              <span class="token seq">Paris</span>
+              <span class="token seq">.</span>
+              <span class="token seq">It</span>
+              <span class="token seq">is</span>
+            </div>
+            <div class="tokenstack subtle">
+              <div>Small/cheap drafter or lightweight draft head</div>
+              <div>Goal: propose multiple candidate next tokens fast</div>
+            </div>
+          </div>
+
+          <div class="spec-arrowbox">→</div>
+
+          <div class="spec-box">
+            <div class="spec-kicker">3 · target verification</div>
+            <h3>Target model checks the draft in parallel</h3>
+            <div class="tokenline">
+              <span class="token accepted">Paris</span>
+              <span class="token accepted">.</span>
+              <span class="token rejected">It</span>
+              <span class="token dropped">is</span>
+            </div>
+            <p class="subtle">
+              The target model accepts the longest matching prefix. Once a token is rejected,
+              later draft tokens in that round are discarded.
+            </p>
+          </div>
+
+          <div class="spec-arrowbox">→</div>
+
+          <div class="spec-box">
+            <div class="spec-kicker">4 · output of the round</div>
+            <h3>Emit accepted tokens and continue</h3>
+            <div class="tokenline">
+              <span class="token">The</span>
+              <span class="token">capital</span>
+              <span class="token">of</span>
+              <span class="token">France</span>
+              <span class="token">is</span>
+              <span class="token accepted">Paris</span>
+              <span class="token accepted">.</span>
+              <span class="token corrected">The</span>
+            </div>
+            <p class="subtle">
+              The system outputs the accepted prefix, then the target model supplies a corrected token
+              at the rejection point, and the next speculative round begins.
+            </p>
+          </div>
+        </div>
+
+        <div class="note">
+          <strong>Core idea:</strong> instead of asking the target model for one token at a time,
+          speculative decoding uses a cheap drafter to guess several tokens ahead and lets the expensive
+          target model verify them in one go.
+        </div>
+      </div>
+    </section>
+
+    <section class="card dimension-card">
+      <h2>Dimension key used throughout</h2>
+      <div class="grid three">
+        <div class="dimbox">
+          B = batch size<br>
+          n = verified context length<br>
+          γ = proposal length / draft block length<br>
+          |V| = vocabulary size
+        </div>
+        <div class="dimbox">
+          k = target hidden size in EAGLE-3 notation<br>
+          D = target hidden size in MTP notation<br>
+          d = draft hidden size in DFlash/DSpark/MTP notation<br>
+          m = number of target layers used as context
+        </div>
+        <div class="dimbox">
+          r = sequential-head rank/state size<br>
+          DSpark default Markov rank: r = 256<br>
+          <span class="math"><span class="mi">h</span><sub>k</sub> ∈ ℝ<sup><span class="mi">d</span></sup></span>, <span class="math"><span class="mi">U</span><sub>k</sub> ∈ ℝ<sup>|<span class="mi">V</span>|</sup></span>
+        </div>
+      </div>
+      <p class="muted">
+        Shapes below omit batch B for readability. Add a leading B dimension in batched serving.
+      </p>
+    </section>
+
+    <section id="why-faster" class="card batch-card">
+      <h2>Why speculative decoding can be faster</h2>
+      <p class="muted">
+        Autoregressive decoding normally makes the target model wait for its own previous token before starting the next step.
+        A drafter breaks that dependency on the expensive path: it guesses a block first, then the target scores all draft
+        positions together with causal attention.
+      </p>
+
+      <div class="speedup-grid">
+        <article class="speed-panel">
+          <div class="speed-kicker">Without speculation · serial target calls</div>
+          <h3>Each new token requires another target pass</h3>
+          <div class="pass-stack" aria-label="Three serial target model passes">
+            <div class="pass-row">
+              <span class="pass-id">Target pass 1</span>
+              <span class="pass-context">… France is</span>
+              <span class="pass-arrow">→</span>
+              <span class="token accepted">Paris</span>
+            </div>
+            <div class="pass-row">
+              <span class="pass-id">Target pass 2</span>
+              <span class="pass-context">… is Paris</span>
+              <span class="pass-arrow">→</span>
+              <span class="token accepted">.</span>
+            </div>
+            <div class="pass-row">
+              <span class="pass-id">Target pass 3</span>
+              <span class="pass-context">… Paris .</span>
+              <span class="pass-arrow">→</span>
+              <span class="token corrected">The</span>
+            </div>
+          </div>
+          <div class="serial-wait">3 sequential target-model steps to emit “Paris . The”</div>
+        </article>
+
+        <div class="versus" aria-hidden="true"><span>vs</span></div>
+
+        <article class="speed-panel fast">
+          <div class="speed-kicker">With speculation · one block verification</div>
+          <h3>The drafter exposes parallel work</h3>
+
+          <div class="draft-strip" aria-label="Drafted token block">
+            <span class="draft-strip-label">Drafter</span>
+            <span class="token accepted">is</span>
+            <span class="pass-arrow">→</span>
+            <span class="token seq">Paris</span>
+            <span class="token seq">.</span>
+            <span class="token seq">It</span>
+            <span class="token seq">is</span>
+          </div>
+
+          <div class="verify-matrix" aria-label="Target predictions for five causally masked positions">
+            <div class="verify-cell">
+              <span class="verify-input">after “is”</span>
+              <span class="verify-predicts">Paris</span>
+              <span class="verify-verdict">accept</span>
+            </div>
+            <div class="verify-cell">
+              <span class="verify-input">after “Paris”</span>
+              <span class="verify-predicts">.</span>
+              <span class="verify-verdict">accept</span>
+            </div>
+            <div class="verify-cell">
+              <span class="verify-input">after “.”</span>
+              <span class="verify-predicts">The</span>
+              <span class="verify-verdict reject">reject “It”</span>
+            </div>
+            <div class="verify-cell">
+              <span class="verify-input">after “It”</span>
+              <span class="verify-predicts">…</span>
+              <span class="verify-verdict ignore">discard</span>
+            </div>
+            <div class="verify-cell">
+              <span class="verify-input">after final “is”</span>
+              <span class="verify-predicts">…</span>
+              <span class="verify-verdict ignore">discard</span>
+            </div>
+          </div>
+
+          <div class="one-pass">
+            <span>Causal masking keeps each position from seeing future draft tokens.</span>
+            <strong>1 target forward pass</strong>
+          </div>
+        </article>
+      </div>
+
+      <div class="batch-serving">
+        <div class="batch-serving-head">
+          <div>
+            <div class="speed-kicker">Serving batch · a second axis of parallelism</div>
+            <h3>Verify several requests and several positions together</h3>
+          </div>
+          <p>
+            The server can stack the verification blocks for <span class="math"><span class="mi">B</span></span> requests.
+            The target then runs dense GPU operations over a tensor with a request dimension and a token-position dimension.
+            Padding is shown for clarity; production systems may instead pack variable-length blocks.
+          </p>
+        </div>
+
+        <div class="batch-flow">
+          <div class="request-batch" aria-label="Three requests prepared for block verification">
+            <div class="request-row">
+              <span class="request-id">Request 1</span>
+              <div class="request-tokens">
+                <span class="token accepted">is</span>
+                <span class="token seq">Paris</span>
+                <span class="token seq">.</span>
+                <span class="token seq">It</span>
+                <span class="token seq">is</span>
+              </div>
+            </div>
+            <div class="request-row">
+              <span class="request-id">Request 2</span>
+              <div class="request-tokens">
+                <span class="token accepted">was</span>
+                <span class="token seq">founded</span>
+                <span class="token seq">in</span>
+                <span class="token seq">1890</span>
+                <span class="token mask">PAD</span>
+              </div>
+            </div>
+            <div class="request-row">
+              <span class="request-id">Request B</span>
+              <div class="request-tokens">
+                <span class="token accepted">is</span>
+                <span class="token seq">42</span>
+                <span class="token seq">.</span>
+                <span class="token mask">PAD</span>
+                <span class="token mask">PAD</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="batch-arrow" aria-hidden="true">→</div>
+
+          <div class="tensor-box">
+            <span class="tensor-shape">B × (γ + 1) × d</span>
+            <span class="tensor-label">one dense target-model verification batch</span>
+          </div>
+        </div>
+
+        <div class="speed-result">
+          <div class="speed-metric">
+            <strong>Fewer serial steps</strong>
+            <span>Several accepted tokens can advance each request after one verifier call.</span>
+          </div>
+          <div class="speed-metric">
+            <strong>Better GPU utilization</strong>
+            <span>More token positions turn small decoding operations into larger matrix operations.</span>
+          </div>
+          <div class="speed-metric">
+            <strong>Same target distribution</strong>
+            <span>Verification accepts only tokens consistent with the target model and corrects the first mismatch.</span>
+          </div>
+        </div>
+
+        <div class="speed-caveat">
+          <strong>It is not automatically γ times faster.</strong>
+          The drafter has a cost, rejected suffix work is wasted, and larger verification batches consume memory.
+          Speedup is best when drafts are cheap, acceptance is high, and the hardware executes the wider verifier batch
+          much faster than the equivalent sequence of target-model calls.
+        </div>
+      </div>
+    </section>
+
+    <section id="methods" class="grid four methods-grid" aria-label="Method summaries">
+      <article class="card method-card eagle">
+        <h3>EAGLE / EAGLE-3</h3>
+        <span class="tag warn">sequential / tree drafter</span>
+        <span class="tag">target hidden features</span>
+        <p>
+          Uses target-model hidden states from already verified tokens. EAGLE-3 fuses low, middle, and high target-layer features,
+          then directly predicts token logits through a lightweight decoder and the target LM head.
+        </p>
+        <div class="dimbox">
+          l, m, h ∈ ℝᵏ<br>
+          [l; m; h] ∈ ℝ³ᵏ → FC → <span class="math"><span class="mi">g</span> ∈ ℝ<sup><span class="mi">k</span></sup></span><br>
+          draft output <span class="math"><span class="mi">a</span> ∈ ℝ<sup><span class="mi">k</span></sup></span> → LM head → ℝ|V|
+        </div>
+      </article>
+
+      <article class="card method-card dflash">
+        <h3>DFlash</h3>
+        <span class="tag good">parallel drafter</span>
+        <span class="tag">KV injection</span>
+        <p>
+          Extracts selected target-layer hidden states from the verified prefix, projects them into the draft hidden space,
+          and injects them as extra keys/values into every draft layer.
+        </p>
+        <div class="dimbox">
+          <span class="math"><span class="mi">H</span><sup>(<span class="mi">l</span><sub>i</sub>)</sup> ∈ ℝ<sup><span class="mi">n</span>×<span class="mi">d</span></sup></span><br>
+          concat m layers: ℝⁿˣᵐᵈ<br>
+          <span class="math"><span class="mi">W</span><sub>c</sub>: ℝ<sup><span class="mi">d</span>×<span class="mi">m</span><span class="mi">d</span></sup></span> → <span class="math"><span class="mi">H</span><sub>ctx</sub> ∈ ℝ<sup><span class="mi">n</span>×<span class="mi">d</span></sup></span><br>
+          draft slots: ℝγˣᵈ → logits ℝγˣ|V|
+        </div>
+      </article>
+
+      <article class="card method-card dspark">
+        <h3>DSpark</h3>
+        <span class="tag good">parallel + tiny sequential</span>
+        <span class="tag">confidence scheduler</span>
+        <p>
+          Reuses the DFlash-like context-injected parallel backbone, then adds a lightweight Markov or RNN head
+          so each sampled slot can depend on previously sampled draft tokens.
+        </p>
+        <div class="dimbox">
+          parallel: <span class="math"><span class="mi">h</span><sub>k</sub> ∈ ℝ<sup><span class="mi">d</span></sup></span>, <span class="math"><span class="mi">U</span><sub>k</sub> ∈ ℝ<sup>|<span class="mi">V</span>|</sup></span><br>
+          Markov: <span class="math"><span class="mi">W</span><sub>1</sub>[<span class="mi">x</span><sub>k−1</sub>] ∈ ℝ<sup><span class="mi">r</span></sup></span>, <span class="math"><span class="mi">W</span><sub>2</sub> ∈ ℝ<sup><span class="mi">r</span>×|<span class="mi">V</span>|</sup></span><br>
+          bias <span class="math"><span class="mi">B</span><sub>k</sub> ∈ ℝ<sup>|<span class="mi">V</span>|</sup></span>, final logits Uₖ+Bₖ
+        </div>
+      </article>
+
+      <article class="card method-card mtp">
+        <h3>MTP</h3>
+        <span class="tag warn">sequential drafter</span>
+        <span class="tag">target-attached</span>
+        <p>
+          Combines a target representation with the current token embedding, projects the pair into a lightweight
+          causal block, and recursively uses that block to draft several future tokens.
+        </p>
+        <div class="dimbox">
+          target feature <span class="math"><span class="mi">h</span><sub>t</sub> ∈ ℝ<sup><span class="mi">D</span></sup></span>, token <span class="math"><span class="mi">e</span>(<span class="mi">x</span><sub>t</sub>) ∈ ℝ<sup><span class="mi">d</span></sup></span><br>
+          <span class="math"><span class="mi">z</span><sub>t</sub> = <span class="mi">W</span><sub>p</sub>[<span class="mi">h</span><sub>t</sub>; <span class="mi">e</span>(<span class="mi">x</span><sub>t</sub>)] ∈ ℝ<sup><span class="mi">d</span></sup></span><br>
+          causal draft block → logits ℝ|V|
+        </div>
+      </article>
+    </section>
+
+    <section id="mtp" class="card mtp-card">
+      <h2>MTP: a target-attached autoregressive drafter</h2>
+      <p class="muted">
+        “Multi-token prediction” can mean a training objective with several future-token losses. In speculative decoding,
+        the trained MTP module is reused as a small drafter. Despite the name, the Gemma/GLM-style drafter does not predict
+        the whole block independently in one pass: it preserves the causal chain and drafts left-to-right.
+      </p>
+
+      <div class="pipeline" aria-label="MTP drafting pipeline">
+        <div class="flow">
+          <span class="token feature">target <span class="math"><span class="mi">h</span><sub>t</sub></span></span>
+          <span class="arrow">+</span>
+          <span class="token accepted"><span class="math"><span class="mi">e</span>(<span class="mi">x</span><sub>t</sub>)</span></span>
+          <span class="arrow">concat + project</span>
+          <span class="token feature"><span class="math"><span class="mi">z</span><sub>t</sub> ∈ ℝ<sup><span class="mi">d</span></sup></span></span>
+          <span class="arrow">lightweight causal block</span>
+          <span class="token seq"><span class="math"><span class="mi">x</span><sub>t+1</sub></span></span>
+          <span class="arrow">recurse γ times</span>
+        </div>
+      </div>
+
+      <div class="grid two">
+        <article class="speed-panel fast">
+          <div class="speed-kicker">Gemma 4 · separate assistant checkpoint</div>
+          <h3>Four draft layers reuse the target's work</h3>
+          <p>
+            Gemma 4's target-specific assistant shares input embeddings, concatenates the target's last-layer activation
+            with the sampled token embedding, and down-projects the result into its own hidden size. Its four-layer text
+            backbone also reuses target KV states, avoiding a separate draft prefill.
+          </p>
+          <div class="dimbox">
+            target last-layer activations + sampled-token embeddings<br>
+            shared input embedding table · shared target KV state<br>
+            E2B/E4B: clustered vocabulary lookup reduces output cost
+          </div>
+        </article>
+
+        <article class="speed-panel">
+          <div class="speed-kicker">GLM 5.2 · NEXTN layer inside the checkpoint</div>
+          <h3>One physical module, reused across draft depths</h3>
+          <p>
+            GLM's MTP family shares the embedding and output head with the target and recursively applies a lightweight
+            Transformer module. GLM 5.2's published checkpoint declares one NEXTN layer; its model card reports that the
+            improved MTP design increases accepted draft length by up to 20% over its preceding design.
+          </p>
+          <div class="dimbox">
+            target/previous-depth representation + shifted token embedding<br>
+            one checkpoint NEXTN layer · shared embedding/output head<br>
+            sequential proposals, then ordinary target verification
+          </div>
+        </article>
+      </div>
+
+      <div class="note">
+        <strong>Closest relative on this page: EAGLE.</strong> Both preserve a causal draft chain and condition on target
+        features. EAGLE-3 deliberately fuses several target layers and can expand a verification tree; MTP is usually a
+        target-specific module packaged or trained with the base model. DFlash instead predicts all γ slots in parallel,
+        while DSpark adds only a tiny sequential correction head after its parallel backbone.
+      </div>
+    </section>
+
+    <section id="playground" class="card lab-card">
+      <h2>Run the example</h2>
+      <p class="muted">
+        Choose a method and step through one speculative decoding round. New “feature view” steps show the actual inputs and dimensions used by the draft model.
+      </p>
+
+      <div class="sim">
+        <aside>
+          <div class="tabs" role="tablist" aria-label="method selector">
+            <button class="active" data-method="eagle" data-index="01" role="tab" aria-selected="true" aria-controls="methodPanel">EAGLE / EAGLE-3</button>
+            <button data-method="dflash" data-index="02" role="tab" aria-selected="false" aria-controls="methodPanel" tabindex="-1">DFlash</button>
+            <button data-method="dspark" data-index="03" role="tab" aria-selected="false" aria-controls="methodPanel" tabindex="-1">DSpark</button>
+            <button data-method="mtp" data-index="04" role="tab" aria-selected="false" aria-controls="methodPanel" tabindex="-1">MTP</button>
+          </div>
+
+          <div id="schedulerControls" class="controls" hidden>
+            <label>
+              System load for DSpark scheduler:
+              <input id="loadSlider" type="range" min="0" max="100" value="70" />
+              <span id="loadLabel">High load</span>
+            </label>
+            <div class="callout">
+              DSpark's scheduler is load-aware. Heavy load prunes low-survival suffixes; light load can verify longer prefixes.
+            </div>
+          </div>
+        </aside>
+
+        <article id="methodPanel" class="stage" role="tabpanel">
+          <div class="stage-head">
+            <div>
+              <h2 id="stageTitle" class="stage-title">EAGLE / EAGLE-3</h2>
+              <p id="stageSub" class="stage-sub">Fuses target hidden states, then drafts sequentially and can verify a tree.</p>
+            </div>
+            <div class="legend">
+              <span class="pill"><span class="dot"></span>draft</span>
+              <span class="pill"><span class="dot accept"></span>accepted</span>
+              <span class="pill"><span class="dot reject"></span>rejected</span>
+              <span class="pill"><span class="dot drop"></span>dropped</span>
+            </div>
+          </div>
+
+          <div class="stepper">
+            <button id="prevBtn">← Previous</button>
+            <button id="nextBtn">Next →</button>
+            <div class="progress"><div id="progressBar" class="bar"></div></div>
+            <strong id="stepCount">1 / 6</strong>
+          </div>
+
+          <div id="viz" class="viz fade-in"></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="card comparison-card">
+      <h2>Input feature comparison</h2>
+      <table class="mini-table compare">
+        <tr>
+          <th>Question</th>
+          <th>EAGLE / EAGLE-3</th>
+          <th>DFlash</th>
+          <th>DSpark</th>
+          <th>MTP (Gemma 4 / GLM 5.2)</th>
+        </tr>
+        <tr>
+          <td>What is fed to the drafter?</td>
+          <td>Fused target features for verified tokens plus token embeddings for sampled/draft tokens.</td>
+          <td>Anchor token embedding + mask embeddings, with target hidden features injected as KV context.</td>
+          <td>Same DFlash-like parallel input, then previous sampled token features feed a Markov/RNN sequential head.</td>
+          <td>A target/previous-depth representation concatenated with the current sampled-token embedding, then projected into a causal draft block.</td>
+        </tr>
+        <tr>
+          <td>Uses target hidden states?</td>
+          <td>Yes. EAGLE-3 fuses low/mid/high layers for tokens already processed by the target.</td>
+          <td>Yes. Selected target layers are concatenated, projected, and injected into draft-layer K/V.</td>
+          <td>Yes, inherited from the DFlash-style backbone; DSpark also uses draft hidden states hₖ for confidence.</td>
+          <td>Yes. Gemma 4 uses the target's last-layer activations; GLM starts the first draft depth from the main-model representation.</td>
+        </tr>
+        <tr>
+          <td>Hidden states for unverified draft tokens?</td>
+          <td>Not available from the target. EAGLE-3 feeds back its own draft output a as a proxy feature.</td>
+          <td>Not available from the target. Future slots are mask positions inside the draft model.</td>
+          <td>Not available from the target. Future slots are mask/anchor positions plus sequential bias from sampled draft tokens.</td>
+          <td>Not available from the target. The MTP module recursively feeds its previous-depth representation and sampled token into the next draft step.</td>
+        </tr>
+        <tr>
+          <td>Output shape</td>
+          <td>One or more draft logits vectors in ℝ|V|, sequential/tree-expanded.</td>
+          <td>γ logits vectors: ℝγˣ|V| in one pass.</td>
+          <td>γ adjusted logits vectors: Uₖ+<span class="math"><span class="mi">B</span><sub>k</sub> ∈ ℝ<sup>|<span class="mi">V</span>|</sup></span> sampled left-to-right.</td>
+          <td>One logits vector in ℝ|V| per recursive draft step; γ steps form the proposal block.</td>
+        </tr>
+        <tr>
+          <td>Main tradeoff</td>
+          <td>High-quality sequential/tree drafts, but each deeper branch costs another draft step.</td>
+          <td>Maximum draft parallelism, but later slots cannot condition on sampled earlier slots.</td>
+          <td>Parallel backbone plus cheap local dependency and load-aware verification scheduling.</td>
+          <td>Tightly coupled and cheap relative to the target, but still serial across draft depth and specific to its target checkpoint.</td>
+        </tr>
+      </table>
+    </section>
+
+    <section class="card algorithm-card">
+      <h2>Compact algorithm sketches with shapes</h2>
+      <div class="grid four">
+        <div>
+          <h3>EAGLE-3-style</h3>
+          <pre><code>target pass over verified prefix:
+  <span class="math"><span class="mi">l</span><sub>i</sub>, <span class="mi">m</span><sub>i</sub>, <span class="mi">h</span><sub>i</sub> ∈ ℝ<sup><span class="mi">k</span></sup></span>
+  gᵢ = FC([lᵢ;mᵢ;hᵢ]) ∈ ℝᵏ
+
+draft step:
+  input: g for verified tokens
+         + e(anchor) or previous a as proxy
+  decoder output <span class="math"><span class="mi">a</span> ∈ ℝ<sup><span class="mi">k</span></sup></span>
+  logits = LM_head(a) ∈ ℝ|V|
+  sample token
+  feed a back for deeper draft steps</code></pre>
+        </div>
+        <div>
+          <h3>DFlash</h3>
+          <pre><code>target context:
+  H^(l₁)...<span class="math"><span class="mi">H</span><sup>(<span class="mi">l</span><sub>m</sub>)</sup> ∈ ℝ<sup><span class="mi">n</span>×<span class="mi">d</span></sup></span>
+  Hctx = RMSNorm(Wc concat(H)) ∈ ℝⁿˣᵈ
+
+draft input:
+  [E(anchor), E(MASK) ...] ∈ ℝγˣᵈ
+
+each draft layer:
+  K,V = concat(project(Hctx), project(Hd))
+  output <span class="math"><span class="rm">logits</span> ∈ ℝ<sup>γ×|<span class="mi">V</span>|</sup></span></code></pre>
+        </div>
+        <div>
+          <h3>DSpark</h3>
+          <pre><code>parallel backbone:
+  <span class="math"><span class="mi">h</span><sub>k</sub> ∈ ℝ<sup><span class="mi">d</span></sup></span>, <span class="math"><span class="mi">U</span><sub>k</sub> ∈ ℝ<sup>|<span class="mi">V</span>|</sup></span>
+
+Markov head:
+  q = <span class="math"><span class="mi">W</span><sub>1</sub>[<span class="mi">x</span><sub>k−1</sub>] ∈ ℝ<sup><span class="mi">r</span></sup></span>
+  Bₖ = q W2 ∈ ℝ|V|
+  pₖ = softmax(Uₖ + Bₖ)
+
+confidence:
+  cₖ = sigmoid(wᵀ[hₖ; q])
+  scheduler chooses prefix length ℓ</code></pre>
+        </div>
+        <div>
+          <h3>MTP-style</h3>
+          <pre><code>first draft depth:
+  h⁰ = target final representation
+
+for draft depth j = 1...γ:
+  zʲ = Wp([hʲ⁻¹; e(xʲ⁻¹)]) ∈ ℝᵈ
+  hʲ = draft_block(zʲ) ∈ ℝᵈ
+  logitsʲ = shared_head(hʲ) ∈ ℝ|V|
+  sample xʲ
+
+verify [x¹...xᵞ] with target</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="card models-card">
+      <h2>Open-source LLMs using these methods in 2026</h2>
+      <p class="muted">
+        “Uses” means that an open draft checkpoint is available for the target model (EAGLE-3, DFlash, and DSpark),
+        or that the released model checkpoint includes a native draft module (MTP). Availability does not mean that
+        speculative decoding is enabled by default in every inference stack.
+      </p>
+      <table class="mini-table compare">
+        <tr>
+          <th>Speculative-decoding method</th>
+          <th>Open-source LLMs with released support in 2026</th>
+          <th>How it is used</th>
+        </tr>
+        <tr>
+          <td>EAGLE / EAGLE-3</td>
+          <td>
+            <a href="https://github.com/SafeAILab/EAGLE#eagle-3-models-on-hugging-face" target="_blank" rel="noopener">Llama 3.1 8B, Llama 3.3 70B, Llama 4 Scout/Maverick, DeepSeek-R1-Distill-Llama 8B, and Qwen3 1.7B–30B-A3B</a>;
+            DeepSpec also releases EAGLE-3 drafters for Qwen3 4B/8B/14B and Gemma 4 12B.
+          </td>
+          <td>A separately trained, target-specific feature drafter; the base LLM weights do not contain EAGLE.</td>
+        </tr>
+        <tr>
+          <td>DFlash</td>
+          <td>
+            <a href="https://github.com/deepseek-ai/DeepSpec#released-checkpoints" target="_blank" rel="noopener">Qwen3 4B, 8B, and 14B; Gemma 4 12B</a>.
+          </td>
+          <td>A separately trained block-diffusion drafter paired with each target checkpoint.</td>
+        </tr>
+        <tr>
+          <td>DSpark</td>
+          <td>
+            <a href="https://github.com/deepseek-ai/DeepSpec#released-checkpoints" target="_blank" rel="noopener">Qwen3 4B, 8B, and 14B; Gemma 4 12B</a>.
+          </td>
+          <td>A separately trained semi-autoregressive drafter plus confidence-based verification scheduling.</td>
+        </tr>
+        <tr>
+          <td>MTP drafter</td>
+          <td>
+            <a href="https://ai.google.dev/gemma/docs/mtp/overview" target="_blank" rel="noopener">Gemma 4</a>,
+            <a href="https://github.com/deepseek-ai/DeepSeek-V3" target="_blank" rel="noopener">DeepSeek-V3</a>, and
+            <a href="https://huggingface.co/zai-org/GLM-5.2" target="_blank" rel="noopener">GLM 5.2</a>.
+          </td>
+          <td>A native target-attached module shipped with, or alongside, the released model weights and reused for drafting.</td>
+        </tr>
+      </table>
+      <div class="note direction-note">
+        <strong>Direction in 2026:</strong> speculative decoding is moving from stand-alone, serial draft models toward
+        target-co-designed MTP modules and parallel or semi-autoregressive drafters, with confidence- and load-aware
+        scheduling deciding how much speculative work the serving system should verify.
+      </div>
+    </section>
+
+    <section id="references" class="card references-card">
+      <h2>References</h2>
+      <ol class="muted">
+        <li>
+          Yuhui Li, Fangyun Wei, Chao Zhang, and Hongyang Zhang. 2024.
+          <a href="https://arxiv.org/abs/2401.15077" target="_blank" rel="noopener">EAGLE: Speculative Sampling Requires Rethinking Feature Uncertainty</a>.
+          arXiv:2401.15077.
+        </li>
+        <li>
+          Yuhui Li, Fangyun Wei, Chao Zhang, and Hongyang Zhang. 2025.
+          <a href="https://arxiv.org/abs/2503.01840" target="_blank" rel="noopener">EAGLE-3: Scaling up Inference Acceleration of Large Language Models via Training-Time Test</a>.
+          arXiv:2503.01840.
+        </li>
+        <li>
+          Jian Chen, Yesheng Liang, and Zhijian Liu. 2026.
+          <a href="https://arxiv.org/abs/2602.06036" target="_blank" rel="noopener">DFlash: Block Diffusion for Flash Speculative Decoding</a>.
+          arXiv:2602.06036.
+        </li>
+        <li>
+          Xin Cheng, Xingkai Yu, Chenze Shao, Jiashi Li, Yunfan Xiong, et al. 2026.
+          <a href="https://github.com/deepseek-ai/DeepSpec/blob/main/DSpark_paper.pdf" target="_blank" rel="noopener">DSpark: Confidence-Scheduled Speculative Decoding with Semi-Autoregressive Generation</a>.
+          DeepSeek-AI.
+        </li>
+        <li>
+          DeepSeek-AI. 2024.
+          <a href="https://arxiv.org/abs/2412.19437" target="_blank" rel="noopener">DeepSeek-V3 Technical Report</a>.
+          Section 2.2 describes sequential MTP modules, shared embeddings/output heads, and their reuse for speculative decoding.
+        </li>
+        <li>
+          GLM-5 Team. 2026.
+          <a href="https://arxiv.org/abs/2602.15763" target="_blank" rel="noopener">GLM-5: From Vibe Coding to Agentic Engineering</a>.
+          Describes recursive parameter sharing for the GLM-family MTP drafter.
+        </li>
+        <li>
+          Google AI for Developers. 2026.
+          <a href="https://ai.google.dev/gemma/docs/mtp/overview" target="_blank" rel="noopener">Speed up Gemma 4 with Multi-Token Prediction</a>
+          and <a href="https://ai.google.dev/gemma/docs/mtp/mtp" target="_blank" rel="noopener">Gemma 4 MTP with Transformers</a>.
+        </li>
+        <li>
+          Z.ai. 2026.
+          <a href="https://huggingface.co/zai-org/GLM-5.2" target="_blank" rel="noopener">GLM 5.2 model card</a>
+          and <a href="https://huggingface.co/zai-org/GLM-5.2/blob/main/config.json" target="_blank" rel="noopener">checkpoint configuration</a>.
+        </li>
+      </ol>
+    </section>
+
+    <p class="footer">
+      This page is a conceptual visualization. Shapes use the notation in the cited papers and omit implementation details such as number of heads, per-head dimensions, cache layout, quantization, and batching.
+    </p>
+  </main>
+
+  <script>
+    const methods = {
+      eagle: {
+        title: "EAGLE / EAGLE-3",
+        sub: "Fuses target hidden states, then drafts sequentially and can verify a tree.",
+        steps: [
+          {
+            title: "1. Target model produces an anchor token",
+            html: `
+              <div class="row"><div class="row-title">Verified input</div>
+                <span class="token">The</span><span class="token">capital</span><span class="token">of</span><span class="token">France</span>
+              </div>
+              <div class="row"><div class="row-title">Target emits</div>
+                <span class="token accepted">is</span>
+              </div>
+              <div class="note">We now display the user-visible prefix as <code>The capital of France is</code>. The drafter proposes what comes after <code>is</code>.</div>
+            `
+          },
+          {
+            title: "2. Feature view: what EAGLE-3 takes from the target model",
+            html: `
+              <div class="pipeline">
+                <div class="flow">
+                  <span class="token">The/capital/of/France</span>
+                  <span class="arrow">→</span>
+                  <span class="token feature"><span class="math"><span class="rm">low</span> <span class="mi">l</span> ∈ ℝ<sup><span class="mi">n</span>×<span class="mi">k</span></sup></span></span>
+                  <span class="token feature"><span class="math"><span class="rm">mid</span> <span class="mi">m</span> ∈ ℝ<sup><span class="mi">n</span>×<span class="mi">k</span></sup></span></span>
+                  <span class="token feature"><span class="math"><span class="rm">high</span> <span class="mi">h</span> ∈ ℝ<sup><span class="mi">n</span>×<span class="mi">k</span></sup></span></span>
+                </div>
+                <div class="flow">
+                  <span class="token feature"><span class="math">[<span class="mi">l</span>; <span class="mi">m</span>; <span class="mi">h</span>] ∈ ℝ<sup><span class="mi">n</span>×3<span class="mi">k</span></sup></span></span>
+                  <span class="arrow">→ FC</span>
+                  <span class="token feature"><span class="math"><span class="mi">g</span> ∈ ℝ<sup><span class="mi">n</span>×<span class="mi">k</span></sup></span></span>
+                </div>
+                <div class="flow">
+                  <span class="token accepted">anchor: is</span>
+                  <span class="arrow">→</span>
+                  <span class="token feature"><span class="math"><span class="rm">embedding</span> <span class="mi">e</span><sub>is</sub> ∈ ℝ<sup><span class="mi">k</span></sup></span></span>
+                </div>
+              </div>
+              <div class="note">
+                Hidden states exist only for tokens the target model has already processed. The sampled anchor <code>is</code> is represented by its embedding because its target hidden feature as an input token is not yet available.
+              </div>
+            `
+          },
+          {
+            title: "3. Draft step: direct token prediction",
+            html: `
+              <div class="pipeline">
+                <div class="flow">
+                  <span class="token feature"><span class="math"><span class="mi">g</span><sub>context</sub> ∈ ℝ<sup><span class="mi">n</span>×<span class="mi">k</span></sup></span></span>
+                  <span class="token feature"><span class="math"><span class="mi">e</span><sub>is</sub> ∈ ℝ<sup><span class="mi">k</span></sup></span></span>
+                  <span class="arrow">→ draft decoder</span>
+                  <span class="token feature"><span class="math"><span class="mi">a</span><sub>is</sub> ∈ ℝ<sup><span class="mi">k</span></sup></span></span>
+                  <span class="arrow">→ LM head</span>
+                  <span class="token base"><span class="math"><span class="rm">Paris logits</span> ∈ ℝ<sup>|<span class="mi">V</span>|</sup></span></span>
+                </div>
+              </div>
+              <div class="note">EAGLE-3 directly predicts token logits. Original EAGLE instead predicted a next feature vector and then applied the target LM head.</div>
+            `
+          },
+          {
+            title: "4. Deeper drafting: use draft output as proxy feature",
+            html: `
+              <div class="row"><div class="row-title">No target g for</div>
+                <span class="token base">Paris</span><span class="token base">.</span><span class="token base">It</span>
+              </div>
+              <div class="row"><div class="row-title">Use instead</div>
+                <span class="token feature"><span class="math"><span class="mi">a</span><sub>Paris</sub> ∈ ℝ<sup><span class="mi">k</span></sup></span></span><span class="token feature"><span class="math"><span class="mi">a</span><sub>.</sub> ∈ ℝ<sup><span class="mi">k</span></sup></span></span><span class="token feature"><span class="math"><span class="mi">a</span><sub>It</sub> ∈ ℝ<sup><span class="mi">k</span></sup></span></span>
+              </div>
+              <div class="tree">
+                <div class="tree-level"><span class="token base">is</span></div>
+                <div class="tree-level">
+                  <div class="branch">
+                    <span class="token base">Paris</span><div class="connector"></div>
+                    <div><span class="token base">.</span> <span class="token small">,</span></div>
+                    <div class="connector"></div>
+                    <span class="token base">It</span>
+                  </div>
+                  <div class="branch">
+                    <span class="token base">Lyon</span><div class="connector"></div>
+                    <span class="token small">is</span>
+                  </div>
+                </div>
+              </div>
+              <div class="note">For draft tokens that have not been verified by the target, EAGLE-3 feeds back its own output vector <code>a</code> in place of a missing target feature <code>g</code>.</div>
+            `
+          },
+          {
+            title: "5. Target verifies the draft tree",
+            html: `
+              <div class="row"><div class="row-title">Branch A</div>
+                <span class="token accepted">Paris</span><span class="token accepted">.</span><span class="token rejected">It</span>
+              </div>
+              <div class="row"><div class="row-title">Branch B</div>
+                <span class="token rejected">Lyon</span><span class="token dropped">is</span>
+              </div>
+              <div class="note">Tree attention verifies several candidate paths while ensuring each token only attends to its own ancestors.</div>
+            `
+          },
+          {
+            title: "6. Emit the accepted prefix",
+            html: `
+              <div class="row"><div class="row-title">Output</div>
+                <span class="token">The</span><span class="token">capital</span><span class="token">of</span><span class="token">France</span><span class="token">is</span>
+                <span class="token accepted">Paris</span><span class="token accepted">.</span>
+              </div>
+              <div class="note">Distinctive behavior: EAGLE spends draft/verification budget on autoregressive branches, using target-derived features where available and proxy draft features where not.</div>
+            `
+          }
+        ]
+      },
+      dflash: {
+        title: "DFlash",
+        sub: "Generates a full linear block in one parallel forward pass using target hidden features as KV context.",
+        steps: [
+          {
+            title: "1. Target model produces an anchor token",
+            html: `
+              <div class="row"><div class="row-title">Verified input</div>
+                <span class="token">The</span><span class="token">capital</span><span class="token">of</span><span class="token">France</span>
+              </div>
+              <div class="row"><div class="row-title">Target emits</div>
+                <span class="token accepted">is</span>
+              </div>
+              <div class="note">DFlash now drafts several tokens after the anchor <code>is</code>.</div>
+            `
+          },
+          {
+            title: "2. Feature view: target-layer context extraction",
+            html: `
+              <div class="pipeline">
+                <div class="flow">
+                  <span class="token feature"><span class="math"><span class="mi">H</span><sup>(<span class="mi">l</span><sub>1</sub>)</sup> ∈ ℝ<sup><span class="mi">n</span>×<span class="mi">d</span></sup></span></span>
+                  <span class="token feature">...</span>
+                  <span class="token feature"><span class="math"><span class="mi">H</span><sup>(<span class="mi">l</span><sub>m</sub>)</sup> ∈ ℝ<sup><span class="mi">n</span>×<span class="mi">d</span></sup></span></span>
+                </div>
+                <div class="flow">
+                  <span class="token feature"><span class="math"><span class="rm">concat</span> ∈ ℝ<sup><span class="mi">n</span>×<span class="mi">m</span><span class="mi">d</span></sup></span></span>
+                  <span class="arrow">→ <span class="math"><span class="mi">W</span><sub>c</sub> ∈ ℝ<sup><span class="mi">d</span>×<span class="mi">m</span><span class="mi">d</span></sup></span></span>
+                  <span class="arrow">→ RMSNorm</span>
+                  <span class="token feature"><span class="math"><span class="mi">H</span><sub>ctx</sub> ∈ ℝ<sup><span class="mi">n</span>×<span class="mi">d</span></sup></span></span>
+                </div>
+              </div>
+              <div class="note">These are hidden states for target-verified tokens. They are not used as ordinary token inputs; they become context keys and values inside each draft layer.</div>
+            `
+          },
+          {
+            title: "3. Draft block input features and dimensions",
+            html: `
+              <div class="row"><div class="row-title">Draft tokens</div>
+                <span class="token accepted">E(is)</span><span class="token mask">E(MASK)</span><span class="token mask">E(MASK)</span><span class="token mask">E(MASK)</span>
+              </div>
+              <div class="row"><div class="row-title">Shape</div>
+                <span class="token feature long"><span class="math"><span class="mi">H</span><sub>d</sub><sup>0</sup> ∈ ℝ<sup>γ×<span class="mi">d</span></sup></span></span>
+              </div>
+              <div class="note">DFlash feeds the anchor embedding plus mask embeddings for future positions. All future slots are present at once.</div>
+            `
+          },
+          {
+            title: "4. KV injection during inference",
+            html: `
+              <div class="pipeline">
+                <div class="flow">
+                  <span class="token feature"><span class="math"><span class="mi">H</span><sub>ctx</sub> ∈ ℝ<sup><span class="mi">n</span>×<span class="mi">d</span></sup></span></span>
+                  <span class="arrow">project</span>
+                  <span class="token feature"><span class="math"><span class="mi">K</span><sub>ctx</sub>, <span class="mi">V</span><sub>ctx</sub></span></span>
+                </div>
+                <div class="flow">
+                  <span class="token feature"><span class="math"><span class="mi">H</span><sub>d</sub> ∈ ℝ<sup>γ×<span class="mi">d</span></sup></span></span>
+                  <span class="arrow">project</span>
+                  <span class="token feature"><span class="math"><span class="mi">K</span><sub>d</sub>, <span class="mi">V</span><sub>d</sub></span></span>
+                </div>
+                <div class="flow">
+                  <span class="token feature"><span class="math"><span class="mi">K</span> = [<span class="mi">K</span><sub>ctx</sub>; <span class="mi">K</span><sub>d</sub>]</span></span>
+                  <span class="token feature"><span class="math"><span class="mi">V</span> = [<span class="mi">V</span><sub>ctx</sub>; <span class="mi">V</span><sub>d</sub>]</span></span>
+                  <span class="arrow">attention</span>
+                  <span class="token feature"><span class="math"><span class="rm">logits</span> ∈ ℝ<sup>γ×|<span class="mi">V</span>|</sup></span></span>
+                </div>
+              </div>
+              <div class="note">The draft block attends bidirectionally within the block and also attends to the injected target context.</div>
+            `
+          },
+          {
+            title: "5. One parallel pass proposes the block",
+            html: `
+              <div class="row"><div class="row-title">Slot 1</div><span class="token base">Paris<span class="conf">0.88</span></span></div>
+              <div class="row"><div class="row-title">Slot 2</div><span class="token base">.<span class="conf">0.81</span></span></div>
+              <div class="row"><div class="row-title">Slot 3</div><span class="token base">located<span class="conf">0.58</span></span></div>
+              <div class="row"><div class="row-title">Slot 4</div><span class="token base">in<span class="conf">0.56</span></span></div>
+              <div class="note">Because later slots do not condition on the sampled earlier slots, the suffix can mix modes: <code>Paris.</code> and <code>located in...</code>.</div>
+            `
+          },
+          {
+            title: "6. Verify fixed block and emit accepted prefix",
+            html: `
+              <div class="row"><div class="row-title">Target check</div>
+                <span class="token accepted">Paris</span><span class="token accepted">.</span><span class="token rejected">located</span><span class="token dropped">in</span>
+              </div>
+              <div class="row"><div class="row-title">Output</div>
+                <span class="token">The</span><span class="token">capital</span><span class="token">of</span><span class="token">France</span><span class="token">is</span>
+                <span class="token accepted">Paris</span><span class="token accepted">.</span>
+              </div>
+              <div class="note">Distinctive behavior: DFlash drafts a long block cheaply, but it typically verifies a fixed block even when the tail has high rejection risk.</div>
+            `
+          }
+        ]
+      },
+      dspark: {
+        title: "DSpark",
+        sub: "DFlash-like parallel context plus a lightweight sequential head and confidence-scheduled verification.",
+        steps: [
+          {
+            title: "1. Target model produces an anchor token",
+            html: `
+              <div class="row"><div class="row-title">Verified input</div>
+                <span class="token">The</span><span class="token">capital</span><span class="token">of</span><span class="token">France</span>
+              </div>
+              <div class="row"><div class="row-title">Target emits</div>
+                <span class="token accepted">is</span>
+              </div>
+              <div class="note">DSpark drafts after <code>is</code>, just like DFlash, but adds sequential correction and scheduling.</div>
+            `
+          },
+          {
+            title: "2. Feature view: DFlash-like parallel backbone",
+            html: `
+              <div class="pipeline">
+                <div class="flow">
+                  <span class="token feature">target <span class="math"><span class="mi">H</span><sup>(<span class="mi">l</span><sub>i</sub>)</sup></span></span>
+                  <span class="arrow">concat + <span class="math"><span class="mi">W</span><sub>c</sub></span></span>
+                  <span class="token feature"><span class="math"><span class="mi">H</span><sub>ctx</sub> ∈ ℝ<sup><span class="mi">n</span>×<span class="mi">d</span></sup></span></span>
+                </div>
+                <div class="flow">
+                  <span class="token accepted">E(is)</span>
+                  <span class="token mask">E(MASK)</span>
+                  <span class="token mask">E(MASK)</span>
+                  <span class="token mask">E(MASK)</span>
+                  <span class="arrow">parallel backbone</span>
+                  <span class="token feature"><span class="math"><span class="mi">h</span><sub>k</sub> ∈ ℝ<sup><span class="mi">d</span></sup></span></span>
+                  <span class="token feature"><span class="math"><span class="mi">U</span><sub>k</sub> ∈ ℝ<sup>|<span class="mi">V</span>|</sup></span></span>
+                </div>
+              </div>
+              <div class="note">DSpark keeps the expensive draft computation parallel. It produces hidden states <code>h₁...hγ</code> and base logits <code>U₁...Uγ</code>.</div>
+            `
+          },
+          {
+            title: "3. Sequential head: add local dependency",
+            html: `
+              <div class="pipeline">
+                <div class="flow">
+                  <span class="token feature">previous token xₖ₋₁</span>
+                  <span class="arrow"><span class="math"><span class="mi">W</span><sub>1</sub></span> lookup</span>
+                  <span class="token feature"><span class="math"><span class="mi">q</span><sub>k</sub> ∈ ℝ<sup><span class="mi">r</span></sup></span></span>
+                  <span class="arrow"><span class="math"><span class="mi">q</span><sub>k</sub><span class="mi">W</span><sub>2</sub></span></span>
+                  <span class="token feature"><span class="math"><span class="mi">B</span><sub>k</sub> ∈ ℝ<sup>|<span class="mi">V</span>|</sup></span></span>
+                </div>
+                <div class="flow">
+                  <span class="token feature"><span class="math"><span class="mi">U</span><sub>k</sub> ∈ ℝ<sup>|<span class="mi">V</span>|</sup></span></span>
+                  <span class="arrow">+</span>
+                  <span class="token feature"><span class="math"><span class="mi">B</span><sub>k</sub> ∈ ℝ<sup>|<span class="mi">V</span>|</sup></span></span>
+                  <span class="arrow">softmax</span>
+                  <span class="token seq">sample xₖ</span>
+                </div>
+              </div>
+              <div class="note">For the default Markov head, the bias only depends on the immediately previous sampled token. With r=256, this is cheap relative to the parallel backbone.</div>
+            `
+          },
+          {
+            title: "4. Draft block and confidence features",
+            html: `
+              <div class="row"><div class="row-title">Draft</div>
+                <span class="token seq">Paris<span class="conf">c₁=.96</span></span>
+                <span class="token seq">.<span class="conf">c₂=.92</span></span>
+                <span class="token seq">It<span class="conf">c₃=.55</span></span>
+                <span class="token seq">is<span class="conf">c₄=.70</span></span>
+              </div>
+              <div class="pipeline">
+                <div class="flow">
+                  <span class="token feature"><span class="math"><span class="mi">h</span><sub>k</sub> ∈ ℝ<sup><span class="mi">d</span></sup></span></span>
+                  <span class="token feature">qₖ=<span class="math"><span class="mi">W</span><sub>1</sub>[<span class="mi">x</span><sub>k−1</sub>] ∈ ℝ<sup><span class="mi">r</span></sup></span></span>
+                  <span class="arrow">concat</span>
+                  <span class="token feature"><span class="math">[<span class="mi">h</span><sub>k</sub>; <span class="mi">q</span><sub>k</sub>] ∈ ℝ<sup><span class="mi">d</span>+<span class="mi">r</span></sup></span></span>
+                  <span class="arrow">sigmoid</span>
+                  <span class="token seq"><span class="math"><span class="mi">c</span><sub>k</sub> ∈ (0, 1)</span></span>
+                </div>
+              </div>
+              <div class="note">Confidence cₖ estimates conditional survival: token k survives target verification assuming all earlier draft tokens survived.</div>
+            `
+          },
+          {
+            title: "5. Hardware-aware scheduler keeps a prefix",
+            dynamic: true
+          },
+          {
+            title: "6. Verify scheduled prefix",
+            dynamicVerify: true
+          }
+        ]
+      },
+      mtp: {
+        title: "MTP",
+        sub: "Reuses a target-attached causal module recursively to draft future tokens left-to-right.",
+        steps: [
+          {
+            title: "1. Target model produces an anchor token",
+            html: `
+              <div class="row"><div class="row-title">Verified input</div>
+                <span class="token">The</span><span class="token">capital</span><span class="token">of</span><span class="token">France</span>
+              </div>
+              <div class="row"><div class="row-title">Target emits</div>
+                <span class="token accepted">is</span>
+              </div>
+              <div class="note">The visible prefix is now <code>The capital of France is</code>. The MTP module starts drafting immediately after the anchor <code>is</code>.</div>
+            `
+          },
+          {
+            title: "2. Feature view: combine target state and anchor embedding",
+            html: `
+              <div class="pipeline">
+                <div class="flow">
+                  <span class="token feature">target last state <span class="math"><span class="mi">h</span><sup>0</sup> ∈ ℝ<sup><span class="mi">D</span></sup></span></span>
+                  <span class="token accepted">anchor embedding <span class="math"><span class="mi">e</span>(is) ∈ ℝ<sup><span class="mi">d</span></sup></span></span>
+                </div>
+                <div class="flow">
+                  <span class="token feature"><span class="math">[<span class="mi">h</span><sup>0</sup>; <span class="mi">e</span>(is)] ∈ ℝ<sup><span class="mi">D</span>+<span class="mi">d</span></sup></span></span>
+                  <span class="arrow">→ projection <span class="math"><span class="mi">W</span><sub>p</sub></span></span>
+                  <span class="token feature"><span class="math"><span class="mi">z</span><sup>1</sup> ∈ ℝ<sup><span class="mi">d</span></sup></span></span>
+                </div>
+              </div>
+              <div class="note">Unlike a stand-alone drafter, MTP begins from work already performed by the target and combines it with the sampled anchor token.</div>
+            `
+          },
+          {
+            title: "3. First MTP depth proposes Paris",
+            html: `
+              <div class="pipeline">
+                <div class="flow">
+                  <span class="token feature"><span class="math"><span class="mi">z</span><sup>1</sup> ∈ ℝ<sup><span class="mi">d</span></sup></span></span>
+                  <span class="arrow">→ causal draft block</span>
+                  <span class="token feature"><span class="math"><span class="mi">h</span><sup>1</sup> ∈ ℝ<sup><span class="mi">d</span></sup></span></span>
+                  <span class="arrow">→ shared LM head</span>
+                  <span class="token seq">Paris</span>
+                </div>
+              </div>
+              <div class="note">The first draft depth produces one vocabulary distribution and samples <code>Paris</code>; it does not independently predict every future slot at once.</div>
+            `
+          },
+          {
+            title: "4. Reuse the module for deeper draft positions",
+            html: `
+              <div class="pipeline">
+                <div class="flow">
+                  <span class="token feature"><span class="math"><span class="mi">h</span><sup>1</sup></span></span>
+                  <span class="token seq"><span class="math"><span class="mi">e</span>(Paris)</span></span>
+                  <span class="arrow">concat + project</span>
+                  <span class="arrow">same draft module</span>
+                  <span class="token seq">.</span>
+                </div>
+                <div class="flow">
+                  <span class="token feature"><span class="math"><span class="mi">h</span><sup>2</sup></span></span>
+                  <span class="token seq"><span class="math"><span class="mi">e</span>(.)</span></span>
+                  <span class="arrow">concat + project</span>
+                  <span class="arrow">same draft module</span>
+                  <span class="token seq">It</span>
+                </div>
+              </div>
+              <div class="note">Each depth conditions on the token sampled at the previous depth. GLM-style MTP can reuse one physical NEXTN module; other implementations may package several lightweight draft layers.</div>
+            `
+          },
+          {
+            title: "5. Sequential drafting forms the proposal block",
+            html: `
+              <div class="row"><div class="row-title">Target prefix</div>
+                <span class="token">The</span><span class="token">capital</span><span class="token">of</span><span class="token">France</span><span class="token accepted">is</span>
+              </div>
+              <div class="row"><div class="row-title">MTP proposal</div>
+                <span class="token seq">Paris</span><span class="token seq">.</span><span class="token seq">It</span><span class="token seq">is</span>
+              </div>
+              <div class="note">The four-token proposal was built left-to-right across four cheap recursive draft depths, preserving dependencies between drafted tokens.</div>
+            `
+          },
+          {
+            title: "6. Target verifies the block and emits the accepted prefix",
+            html: `
+              <div class="row"><div class="row-title">Target check</div>
+                <span class="token accepted">Paris</span><span class="token accepted">.</span><span class="token rejected">It</span><span class="token dropped">is</span>
+              </div>
+              <div class="row"><div class="row-title">Output</div>
+                <span class="token">The</span><span class="token">capital</span><span class="token">of</span><span class="token">France</span><span class="token">is</span>
+                <span class="token accepted">Paris</span><span class="token accepted">.</span><span class="token corrected">The</span>
+              </div>
+              <div class="note">The target accepts <code>Paris .</code>, rejects <code>It</code>, and supplies <code>The</code> at the mismatch. MTP changes the cost of drafting, not the lossless verification rule.</div>
+            `
+          }
+        ]
+      }
+    };
+
+    let currentMethod = "eagle";
+    let step = 0;
+
+    const viz = document.getElementById("viz");
+    const title = document.getElementById("stageTitle");
+    const sub = document.getElementById("stageSub");
+    const stepCount = document.getElementById("stepCount");
+    const progressBar = document.getElementById("progressBar");
+    const loadSlider = document.getElementById("loadSlider");
+    const loadLabel = document.getElementById("loadLabel");
+    const schedulerControls = document.getElementById("schedulerControls");
+
+    function loadText() {
+      const v = Number(loadSlider.value);
+      if (v < 35) return "Light load";
+      if (v < 70) return "Moderate load";
+      return "High load";
+    }
+
+    function dsparkScheduleHtml() {
+      const v = Number(loadSlider.value);
+      const high = v >= 70;
+      const moderate = v >= 35 && v < 70;
+      let kept, dropped, rationale;
+      if (high) {
+        kept = ["Paris", "."];
+        dropped = ["It", "is"];
+        rationale = "High load: only high-survival prefix tokens are worth target-model batch capacity.";
+      } else if (moderate) {
+        kept = ["Paris", ".", "It"];
+        dropped = ["is"];
+        rationale = "Moderate load: verify one more token because extra batch cost is acceptable.";
+      } else {
+        kept = ["Paris", ".", "It", "is"];
+        dropped = [];
+        rationale = "Light load: target-model batch capacity is available, so verifying the whole block is acceptable.";
+      }
+
+      const tokenHtml = kept.map(t => `<span class="token seq">${t}</span>`).join("") +
+        dropped.map(t => `<span class="token dropped">${t}</span>`).join("");
+
+      return `
+        <div class="row"><div class="row-title">${loadText()}</div>${tokenHtml}</div>
+        <div class="note">${rationale}</div>
+        <table class="mini-table">
+          <tr><th>Candidate extension</th><th>Prefix survival</th><th>Scheduler action</th></tr>
+          <tr><td>Paris</td><td>0.96</td><td>Keep</td></tr>
+          <tr><td>Paris .</td><td>0.96 × 0.92 = 0.88</td><td>Keep</td></tr>
+          <tr><td>Paris . It</td><td>0.96 × 0.92 × 0.55 = 0.49</td><td>${high ? "Drop" : "Keep"}</td></tr>
+          <tr><td>Paris . It is</td><td>0.96 × 0.92 × 0.55 × 0.70 = 0.34</td><td>${high || moderate ? "Drop" : "Keep"}</td></tr>
+        </table>
+      `;
+    }
+
+    function dsparkVerifyHtml() {
+      const v = Number(loadSlider.value);
+      if (v >= 70) {
+        return `
+          <div class="row"><div class="row-title">Scheduled</div>
+            <span class="token seq">Paris</span><span class="token seq">.</span>
+            <span class="token dropped">It</span><span class="token dropped">is</span>
+          </div>
+          <div class="row"><div class="row-title">Target check</div>
+            <span class="token accepted">Paris</span><span class="token accepted">.</span>
+          </div>
+          <div class="row"><div class="row-title">Output</div>
+            <span class="token">The</span><span class="token">capital</span><span class="token">of</span><span class="token">France</span><span class="token">is</span>
+            <span class="token accepted">Paris</span><span class="token accepted">.</span>
+          </div>
+          <div class="note">The low-survival suffix was never sent to the target model, saving verification capacity.</div>
+        `;
+      }
+      if (v >= 35) {
+        return `
+          <div class="row"><div class="row-title">Scheduled</div>
+            <span class="token seq">Paris</span><span class="token seq">.</span><span class="token seq">It</span>
+            <span class="token dropped">is</span>
+          </div>
+          <div class="row"><div class="row-title">Target check</div>
+            <span class="token accepted">Paris</span><span class="token accepted">.</span><span class="token rejected">It</span>
+          </div>
+          <div class="row"><div class="row-title">Correction</div>
+            <span class="token corrected">The</span>
+          </div>
+          <div class="note">The target rejects the third token and produces a corrected bonus token for the next round.</div>
+        `;
+      }
+      return `
+        <div class="row"><div class="row-title">Scheduled</div>
+          <span class="token seq">Paris</span><span class="token seq">.</span><span class="token seq">It</span><span class="token seq">is</span>
+        </div>
+        <div class="row"><div class="row-title">Target check</div>
+          <span class="token accepted">Paris</span><span class="token accepted">.</span><span class="token rejected">It</span><span class="token dropped">is</span>
+        </div>
+        <div class="row"><div class="row-title">Correction</div>
+          <span class="token corrected">The</span>
+        </div>
+        <div class="note">Light load tolerates extra verification, but suffix rejection still discards later tokens.</div>
+      `;
+    }
+
+    function render() {
+      const method = methods[currentMethod];
+      const s = method.steps[step];
+      title.textContent = method.title;
+      sub.textContent = method.sub;
+      stepCount.textContent = `${step + 1} / ${method.steps.length}`;
+      progressBar.style.width = `${((step + 1) / method.steps.length) * 100}%`;
+
+      let body = "";
+      if (s.dynamic) body = dsparkScheduleHtml();
+      else if (s.dynamicVerify) body = dsparkVerifyHtml();
+      else body = s.html;
+
+      viz.classList.remove("fade-in");
+      void viz.offsetWidth;
+      viz.classList.add("fade-in");
+      viz.innerHTML = `<h3>${s.title}</h3>${body}`;
+
+      document.getElementById("prevBtn").disabled = step === 0;
+      document.getElementById("nextBtn").disabled = step === method.steps.length - 1;
+      loadLabel.textContent = loadText();
+      schedulerControls.hidden = currentMethod !== "dspark";
+    }
+
+    document.querySelectorAll("[data-method]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("[data-method]").forEach(b => {
+          const selected = b === btn;
+          b.classList.toggle("active", selected);
+          b.setAttribute("aria-selected", selected);
+          b.tabIndex = selected ? 0 : -1;
+        });
+        currentMethod = btn.dataset.method;
+        step = 0;
+        render();
+      });
+    });
+
+    document.querySelector(".tabs").addEventListener("keydown", event => {
+      if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+      const tabs = [...document.querySelectorAll("[data-method]")];
+      const current = tabs.indexOf(document.activeElement);
+      if (current < 0) return;
+      event.preventDefault();
+      const offset = event.key === "ArrowRight" ? 1 : -1;
+      tabs[(current + offset + tabs.length) % tabs.length].click();
+      tabs[(current + offset + tabs.length) % tabs.length].focus();
+    });
+
+    document.getElementById("prevBtn").addEventListener("click", () => {
+      step = Math.max(0, step - 1);
+      render();
+    });
+
+    document.getElementById("nextBtn").addEventListener("click", () => {
+      step = Math.min(methods[currentMethod].steps.length - 1, step + 1);
+      render();
+    });
+
+    loadSlider.addEventListener("input", render);
+
+    render();
+  </script>
