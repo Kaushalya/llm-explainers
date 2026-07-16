@@ -1225,6 +1225,181 @@ function EvalsPage() {
         </span>
       </section>
 
+      <section className="reported-results">
+        <header>
+          <div>
+            <span>PRIMARY-SOURCE SURVEY</span>
+            <h2>REPORTED EVALUATION VALUES</h2>
+          </div>
+          <p>
+            These are published measurements, not simulator defaults. Rows use
+            different targets, workloads, runtimes, and hardware; compare values
+            within a row or a shared source setup, not as a universal
+            leaderboard.
+          </p>
+        </header>
+        <div className="table-scroll">
+          <table className="terminal-table evidence-table">
+            <thead>
+              <tr>
+                <th>Approach</th>
+                <th>Draft-quality result</th>
+                <th>Speed result</th>
+                <th>Evaluation context</th>
+                <th>Original source</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <span className="method-chip baseline-chip">VANILLA AR</span>
+                </td>
+                <td>No draft proposal; one target token per decoding step.</td>
+                <td>
+                  <strong>1.00× baseline</strong>
+                </td>
+                <td>
+                  Reference denominator used by each speculative-decoding study.
+                </td>
+                <td>
+                  <a
+                    href="https://arxiv.org/abs/2503.01840"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    EAGLE-3 §4 ↗
+                  </a>
+                  <a
+                    href="https://arxiv.org/abs/2602.06036"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    DFlash §5 ↗
+                  </a>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <span className="method-chip mtp-chip">MTP</span>
+                </td>
+                <td>
+                  DeepSeek-V3 reports <strong>85–90%</strong> acceptance for its
+                  additional second-token prediction across generation topics.
+                </td>
+                <td>
+                  DeepSeek-V3: <strong>1.8× TPS</strong>.<br />
+                  Gemma 4: up to <strong>2.2× GPU</strong> and{" "}
+                  <strong> 1.5× CPU</strong> decode speedup on mobile devices.
+                </td>
+                <td>
+                  DeepSeek-V3 native two-token MTP; report does not specify the
+                  hardware for the 1.8× figure. Gemma figures use LiteRT-LM
+                  mobile CPU/GPU backends and report zero quality degradation.
+                </td>
+                <td>
+                  <a
+                    href="https://arxiv.org/abs/2412.19437"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    DeepSeek-V3 §5.4.3 ↗
+                  </a>
+                  <a
+                    href="https://developers.google.com/edge/litert-lm/models/gemma-4"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Gemma 4 official results ↗
+                  </a>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <span className="method-chip eagle-chip">EAGLE-3</span>
+                </td>
+                <td>
+                  Original paper reports average accepted length
+                  <strong> τ up to 7.5</strong> on HumanEval. On Llama 3.1 8B, τ
+                  = <strong>6.13</strong> for MT-Bench and
+                  <strong> 6.23</strong> for GSM8K.
+                </td>
+                <td>
+                  <strong>3.0–6.5×</strong> over vanilla across evaluated models
+                  and tasks. SGLang H100 MT-Bench: <strong>373.25 tok/s</strong>
+                  versus 158.34 at batch 1; <strong>1.38×</strong> throughput at
+                  batch 64.
+                </td>
+                <td>
+                  Five chat/reasoning/code tasks; temperature 0 for headline
+                  latency results. SGLang v0.4.4 uses one H100 and Llama 3.1 8B.
+                </td>
+                <td>
+                  <a
+                    href="https://arxiv.org/abs/2503.01840"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    EAGLE-3 Tables 1–4 ↗
+                  </a>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <span className="method-chip dflash-chip">DFLASH</span>
+                </td>
+                <td>
+                  Greedy seven-task average τ = <strong>6.54</strong> on
+                  Qwen3-4B and <strong>6.49</strong> on Qwen3-8B with block size
+                  16.
+                </td>
+                <td>
+                  Average <strong>4.91×</strong> and <strong>4.86×</strong>
+                  respectively; individual tasks reach <strong>6.09×</strong>.
+                  All results are lossless against the target output.
+                </td>
+                <td>
+                  NVIDIA H200, Transformers backend, temperature 0, thinking
+                  disabled, ≤2048 generated tokens; GSM8K, MATH-500, AIME25,
+                  HumanEval, MBPP, LiveCodeBench, and MT-Bench.
+                </td>
+                <td>
+                  <a
+                    href="https://arxiv.org/abs/2602.06036"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    DFlash Table 1 ↗
+                  </a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div className="evidence-notes">
+          <p>
+            <b>τ</b>
+            <span>
+              Average accepted tokens per verification cycle, including the
+              target bonus token where defined by the paper.
+            </span>
+          </p>
+          <p>
+            <b>SPEEDUP</b>
+            <span>
+              Wall-clock or throughput ratio against that source's own optimized
+              autoregressive baseline.
+            </span>
+          </p>
+          <p>
+            <b>QUALITY</b>
+            <span>
+              “Lossless” means verification preserves the target distribution;
+              numerical implementation details can still matter.
+            </span>
+          </p>
+        </div>
+      </section>
+
       <section className="eval-group">
         <header>
           <span>GROUP A</span>

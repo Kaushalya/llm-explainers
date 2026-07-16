@@ -1254,6 +1254,118 @@ footer b {
 .eval-band span {
   color: #a58c56;
 }
+.reported-results {
+  border-bottom: 1px solid var(--g);
+}
+.reported-results > header {
+  min-height: 96px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 50px;
+  padding: 20px 32px;
+  border-bottom: 1px solid var(--dim);
+}
+.reported-results > header span {
+  color: var(--cyan);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+.reported-results > header h2 {
+  color: #d0ffe5;
+  font-size: 18px;
+  margin: 6px 0 0;
+}
+.reported-results > header p {
+  color: #7eae95;
+  line-height: 1.65;
+  margin: 0;
+}
+.evidence-table {
+  table-layout: fixed;
+}
+.evidence-table th:nth-child(1) {
+  width: 12%;
+}
+.evidence-table th:nth-child(2) {
+  width: 22%;
+}
+.evidence-table th:nth-child(3) {
+  width: 22%;
+}
+.evidence-table th:nth-child(4) {
+  width: 31%;
+}
+.evidence-table th:nth-child(5) {
+  width: 13%;
+}
+.evidence-table td {
+  color: #7fac94;
+  line-height: 1.7;
+}
+.evidence-table td strong {
+  color: #d0ffe5;
+}
+.evidence-table td:last-child a {
+  display: block;
+  color: var(--cyan);
+  text-decoration: none;
+  margin-bottom: 8px;
+}
+.evidence-table td:last-child a:hover {
+  color: #d5fffa;
+  text-decoration: underline;
+}
+.method-chip {
+  display: inline-block;
+  min-width: 100px;
+  padding: 7px 9px;
+  border: 1px solid var(--g);
+  color: #c7ffe1;
+  text-align: center;
+  font-size: 11px;
+}
+.baseline-chip {
+  border-color: #5f8d75;
+}
+.mtp-chip {
+  border-color: var(--amber);
+  color: #ffe2a0;
+}
+.eagle-chip {
+  border-color: var(--cyan);
+  color: #bafff6;
+}
+.dflash-chip {
+  background: #063029;
+  border-color: var(--cyan);
+  color: #bafff6;
+}
+.evidence-notes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--dim);
+}
+.evidence-notes p {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 0;
+  padding: 15px 20px;
+  border-right: 1px solid var(--dim);
+}
+.evidence-notes p:last-child {
+  border-right: 0;
+}
+.evidence-notes b {
+  color: var(--amber);
+  font-size: 10px;
+}
+.evidence-notes span {
+  color: #6f9a83;
+  font-size: 0.82em;
+  line-height: 1.55;
+}
 .eval-group {
   border-bottom: 1px solid var(--g);
 }
