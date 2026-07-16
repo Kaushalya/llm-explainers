@@ -439,11 +439,57 @@ footer b {
   font-style: normal;
   letter-spacing: 0.08em;
 }
+.content-size-control {
+  margin-left: auto;
+  min-width: 310px;
+  padding: 0 15px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  color: #6da68a;
+  border-left: 1px solid var(--dim);
+}
+.content-size-control > span {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+.content-size-control output {
+  width: 42px;
+  color: var(--amber);
+  font-size: 11px;
+}
+.content-size-control input[type="range"] {
+  width: 130px;
+  height: 3px;
+  appearance: none;
+  background: #075337;
+  border: 0;
+  outline: 0;
+}
+.content-size-control input[type="range"]::-webkit-slider-thumb {
+  width: 10px;
+  height: 18px;
+  appearance: none;
+  border: 1px solid var(--g);
+  border-radius: 0;
+  background: var(--g);
+  cursor: ew-resize;
+}
+.content-size-control input[type="range"]::-moz-range-thumb {
+  width: 10px;
+  height: 18px;
+  border: 1px solid var(--g);
+  border-radius: 0;
+  background: var(--g);
+  cursor: ew-resize;
+}
 .page-shell {
   border: 1px solid var(--g);
   border-top: 0;
   background: linear-gradient(180deg, rgba(0, 45, 30, 0.18), transparent 280px);
   color: #9fd6ba;
+  font-size: var(--content-font-size, 14px);
 }
 .page-intro {
   min-height: 150px;
@@ -657,6 +703,335 @@ footer b {
   text-align: center;
   color: var(--cyan);
   font-style: normal;
+}
+.architecture-section {
+  border-bottom: 1px solid var(--g);
+}
+.architecture-section > header {
+  min-height: 92px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 50px;
+  padding: 19px 32px;
+  border-bottom: 1px solid var(--dim);
+}
+.architecture-section > header span {
+  color: var(--cyan);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+.architecture-section > header h2 {
+  color: #d0ffe5;
+  font-size: 18px;
+  margin: 6px 0 0;
+}
+.architecture-section > header p {
+  color: #7eae95;
+  line-height: 1.65;
+  margin: 0;
+}
+.architecture-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.architecture-card {
+  border-right: 1px solid var(--g);
+  border-bottom: 1px solid var(--g);
+}
+.architecture-card:nth-child(even) {
+  border-right: 0;
+}
+.architecture-card-head {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--dim);
+}
+.architecture-card-head > span {
+  color: var(--cyan);
+  font-size: 10px;
+}
+.architecture-card-head h3 {
+  color: #ccffe3;
+  font-size: 14px;
+  margin: 0;
+}
+.architecture-card-head mark {
+  margin-left: auto;
+  color: var(--amber);
+  background: transparent;
+  font-size: 10px;
+}
+.architecture-diagram {
+  min-height: 310px;
+  margin: 20px;
+  padding: 18px;
+  border: 1px solid var(--cyan);
+  background: linear-gradient(180deg, #031713, #010806);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  color: var(--cyan);
+}
+.architecture-diagram i {
+  color: #3d9b88;
+  font-style: normal;
+  font-size: 10px;
+}
+.architecture-diagram small {
+  color: #557f6a;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+.arch-context,
+.arch-target,
+.arch-drafter,
+.arch-verify {
+  min-width: 230px;
+  padding: 10px 14px;
+  text-align: center;
+  border: 1px solid #147f7c;
+  color: #bdfff0;
+}
+.arch-target {
+  border-color: var(--g);
+  background: #05261a;
+}
+.arch-drafter {
+  color: #ffe3a0;
+  border-color: var(--amber);
+  background: #1a1405;
+}
+.arch-verify {
+  border-color: var(--g);
+  color: #a9ffd0;
+  margin-top: 3px;
+}
+.arch-token-chain,
+.arch-input-pair,
+.arch-mask-block,
+.parallel-chain {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+.arch-token-chain code,
+.arch-input-pair code,
+.arch-mask-block code,
+.parallel-chain code {
+  min-width: 48px;
+  padding: 8px;
+  border: 1px solid var(--g);
+  color: #c3ffdd;
+  text-align: center;
+  font-family: inherit;
+}
+.arch-token-chain b,
+.arch-input-pair b,
+.arch-mask-block b {
+  color: #3e9a75;
+  font-weight: 400;
+}
+.draft-chain code {
+  border-color: var(--amber);
+  color: #ffe4a1;
+}
+.arch-input-pair code {
+  min-width: 145px;
+  border-color: var(--cyan);
+  color: #bdfff0;
+}
+.arch-feature-stack {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  width: 100%;
+}
+.arch-feature-stack code {
+  border: 1px solid var(--cyan);
+  padding: 9px;
+  color: #bdfff0;
+  text-align: center;
+  font-family: inherit;
+}
+.compact-features {
+  grid-template-columns: 1fr 1fr;
+  max-width: 390px;
+}
+.arch-mask-block code {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  background: #063029;
+}
+.parallel-chain code {
+  border-color: var(--amber);
+  color: #ffe3a0;
+}
+.architecture-card > p {
+  min-height: 112px;
+  margin: 0;
+  padding: 0 22px 22px;
+  color: #86b69e;
+  line-height: 1.75;
+}
+.kv-section {
+  border-bottom: 1px solid var(--g);
+  background: rgba(0, 12, 8, 0.65);
+}
+.kv-section > header {
+  min-height: 92px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 50px;
+  padding: 19px 32px;
+  border-bottom: 1px solid var(--dim);
+}
+.kv-section > header span {
+  color: var(--cyan);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+.kv-section > header h2 {
+  margin: 6px 0 0;
+  color: #d0ffe5;
+  font-size: 18px;
+}
+.kv-section > header p {
+  margin: 0;
+  color: #7eae95;
+  line-height: 1.65;
+}
+.kv-lifecycle {
+  display: grid;
+  grid-template-columns: 1fr 35px 1.15fr 35px 1.3fr;
+  align-items: stretch;
+  padding: 24px;
+}
+.kv-lifecycle > b {
+  align-self: center;
+  color: var(--cyan);
+  text-align: center;
+}
+.kv-lifecycle article {
+  border: 1px solid var(--dim);
+  background: #010806;
+  padding: 14px;
+}
+.kv-lifecycle label {
+  display: block;
+  color: var(--amber);
+  font-size: 10px;
+  margin-bottom: 14px;
+}
+.kv-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 45px;
+}
+.kv-row span {
+  padding: 9px 10px;
+  border: 1px solid var(--dim);
+  white-space: nowrap;
+}
+.kv-row i {
+  margin-left: auto;
+  color: #557b67;
+  font-size: 9px;
+  font-style: normal;
+}
+.kv-prefix {
+  flex: 1;
+  color: #bfffdc;
+  background: #042117;
+}
+.kv-tentative {
+  color: var(--cyan);
+  border-color: var(--cyan) !important;
+  border-style: dashed !important;
+}
+.kv-accepted {
+  color: #aaffcf;
+  border-color: var(--g) !important;
+}
+.kv-rejected {
+  color: #ff9da4;
+  border-color: var(--red) !important;
+  text-decoration: line-through;
+}
+.kv-discarded {
+  color: #65766c;
+  border-color: #3f5148 !important;
+}
+.kv-explanation-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--dim);
+  border-bottom: 1px solid var(--dim);
+}
+.kv-explanation-grid article {
+  padding: 18px 22px;
+  border-right: 1px solid var(--dim);
+}
+.kv-explanation-grid article:last-child {
+  border-right: 0;
+}
+.kv-explanation-grid b {
+  color: var(--cyan);
+  font-size: 10px;
+}
+.kv-explanation-grid p {
+  color: #7da990;
+  line-height: 1.65;
+  font-size: 0.86em;
+  margin: 9px 0 0;
+}
+.kv-authority {
+  display: grid;
+  grid-template-columns: 1fr 55px 1fr;
+  align-items: center;
+  padding: 18px 24px;
+}
+.kv-authority div {
+  border: 1px solid var(--dim);
+  padding: 13px 18px;
+  display: flex;
+  justify-content: space-between;
+}
+.kv-authority span {
+  color: var(--amber);
+}
+.kv-authority strong {
+  color: #94c6aa;
+  font-size: 11px;
+}
+.kv-authority i {
+  color: var(--red);
+  text-align: center;
+  font-style: normal;
+}
+.kv-method-table td:nth-child(2),
+.kv-method-table td:nth-child(3) {
+  color: #7fac94;
+}
+.kv-section > aside {
+  margin: 18px 24px 22px;
+  padding: 12px 15px;
+  border-left: 3px solid var(--amber);
+  background: #171205;
+  color: #ae965f;
+  line-height: 1.6;
+}
+.kv-section > aside b {
+  color: var(--amber);
+  margin-right: 12px;
 }
 .docs-grid {
   display: grid;
@@ -912,7 +1287,7 @@ footer b {
   display: block;
   color: var(--cyan);
   font-family: inherit;
-  font-size: 11px;
+  font-size: 0.79em;
   border: 1px solid #116b68;
   background: #031713;
   padding: 10px;
@@ -921,7 +1296,7 @@ footer b {
 .eval-card p {
   line-height: 1.7;
   color: #7eae95;
-  font-size: 12px;
+  font-size: 0.86em;
 }
 .eval-protocol .terminal-table {
   margin-bottom: 20px;

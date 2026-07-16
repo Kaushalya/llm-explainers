@@ -517,6 +517,296 @@ function DocsPage() {
         </div>
       </section>
 
+      <section className="architecture-section">
+        <header>
+          <div>
+            <span>MODEL TOPOLOGY</span>
+            <h2>ARCHITECTURE AT A GLANCE</h2>
+          </div>
+          <p>
+            The diagrams emphasize where target features enter, whether the
+            draft path is serial or parallel, and where verification restores
+            exact agreement with the target model.
+          </p>
+        </header>
+        <div className="architecture-grid">
+          <article className="architecture-card ar-architecture">
+            <div className="architecture-card-head">
+              <span>01</span>
+              <h3>VANILLA AR</h3>
+              <mark>SERIAL TARGET</mark>
+            </div>
+            <div className="architecture-diagram">
+              <div className="arch-context">VERIFIED PREFIX + KV CACHE</div>
+              <i>↓</i>
+              <div className="arch-target">TARGET MODEL</div>
+              <i>↓</i>
+              <div className="arch-token-chain">
+                <code>T₁</code>
+                <b>→</b>
+                <code>T₂</code>
+                <b>→</b>
+                <code>T₃</code>
+                <b>→</b>
+                <code>T₄</code>
+              </div>
+              <small>ONE TARGET PASS PER TOKEN</small>
+            </div>
+            <p>
+              Each selected target token becomes the input dependency for the
+              next pass. KV caching saves prefix recomputation, but generation
+              still has a target-side sequential depth of N for N tokens.
+            </p>
+          </article>
+
+          <article className="architecture-card mtp-architecture">
+            <div className="architecture-card-head">
+              <span>02</span>
+              <h3>GEMMA-STYLE MTP</h3>
+              <mark>SERIAL DRAFT</mark>
+            </div>
+            <div className="architecture-diagram">
+              <div className="arch-input-pair">
+                <code>TARGET hₜ</code>
+                <b>+</b>
+                <code>TOKEN e(xₜ)</code>
+              </div>
+              <i>↓ CONCAT + PROJECT</i>
+              <div className="arch-drafter">LIGHTWEIGHT MTP BLOCK</div>
+              <i>↓</i>
+              <div className="arch-token-chain draft-chain">
+                <code>d₁</code>
+                <b>→</b>
+                <code>d₂</code>
+                <b>→</b>
+                <code>d₃</code>
+                <b>→</b>
+                <code>d₄</code>
+              </div>
+              <div className="arch-verify">TARGET VERIFY</div>
+            </div>
+            <p>
+              A target-attached lightweight module combines target state with
+              the current sampled token. It is recursively reused across draft
+              depths, making proposals cheap but still causally sequential.
+            </p>
+          </article>
+
+          <article className="architecture-card eagle-architecture">
+            <div className="architecture-card-head">
+              <span>03</span>
+              <h3>EAGLE-3</h3>
+              <mark>FUSED FEATURES</mark>
+            </div>
+            <div className="architecture-diagram">
+              <div className="arch-feature-stack">
+                <code>LOW LAYER</code>
+                <code>MID LAYER</code>
+                <code>HIGH LAYER</code>
+              </div>
+              <i>↓ FEATURE FUSION ↓</i>
+              <div className="arch-drafter">EAGLE-3 DRAFT TRANSFORMER</div>
+              <i>↓ TARGET LM HEAD</i>
+              <div className="arch-token-chain draft-chain">
+                <code>d₁</code>
+                <b>→</b>
+                <code>d₂</code>
+                <b>→</b>
+                <code>d₃</code>
+                <b>→</b>
+                <code>d₄</code>
+              </div>
+              <div className="arch-verify">TARGET VERIFY / TREE</div>
+            </div>
+            <p>
+              Low-, middle-, and high-layer target features are fused into a
+              representation-aligned drafter. It predicts logits directly and
+              can extend a serial chain or expand candidates into a tree.
+            </p>
+          </article>
+
+          <article className="architecture-card dflash-architecture">
+            <div className="architecture-card-head">
+              <span>04</span>
+              <h3>DFLASH</h3>
+              <mark>PARALLEL DRAFT</mark>
+            </div>
+            <div className="architecture-diagram">
+              <div className="arch-feature-stack compact-features">
+                <code>TARGET FEATURES</code>
+                <code>ANCHOR TOKEN</code>
+              </div>
+              <i>↓ KV INJECTION ↓</i>
+              <div className="arch-mask-block">
+                <code>■</code>
+                <b>↔</b>
+                <code>■</code>
+                <b>↔</b>
+                <code>■</code>
+                <b>↔</b>
+                <code>■</code>
+              </div>
+              <small>BIDIRECTIONAL BLOCK ATTENTION</small>
+              <i>↓ ONE ATOMIC REVEAL</i>
+              <div className="arch-token-chain parallel-chain">
+                <code>d₁</code>
+                <code>d₂</code>
+                <code>d₃</code>
+                <code>d₄</code>
+              </div>
+              <div className="arch-verify">TARGET VERIFY</div>
+            </div>
+            <p>
+              Projected target features condition all masked future positions
+              together. The entire coordinated proposal appears in one draft
+              pass, removing the draft-token dependency chain.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section className="kv-section">
+        <header>
+          <div>
+            <span>STATE MANAGEMENT</span>
+            <h2>HOW THE KV CACHE IS UPDATED</h2>
+          </div>
+          <p>
+            Target-model KV entries created during verification are tentative.
+            Only the longest accepted prefix becomes authoritative; cache state
+            belonging to the rejected suffix is rolled back.
+          </p>
+        </header>
+
+        <div className="kv-lifecycle">
+          <article>
+            <label>01 · BEFORE VERIFICATION</label>
+            <div className="kv-row">
+              <span className="kv-prefix">x₁ … xₙ</span>
+              <i>COMMITTED TARGET KV</i>
+            </div>
+          </article>
+          <b>→</b>
+          <article>
+            <label>02 · TENTATIVE TARGET PASS</label>
+            <div className="kv-row">
+              <span className="kv-prefix">x₁ … xₙ</span>
+              <span className="kv-tentative">d₁</span>
+              <span className="kv-tentative">d₂</span>
+              <span className="kv-tentative">d₃</span>
+              <span className="kv-tentative">d₄</span>
+            </div>
+          </article>
+          <b>→</b>
+          <article>
+            <label>03 · COMMIT / ROLLBACK</label>
+            <div className="kv-row">
+              <span className="kv-prefix">x₁ … xₙ</span>
+              <span className="kv-accepted">✓ d₁</span>
+              <span className="kv-accepted">✓ d₂</span>
+              <span className="kv-rejected">× d₃</span>
+              <span className="kv-discarded">— d₄</span>
+            </div>
+          </article>
+        </div>
+
+        <div className="kv-explanation-grid">
+          <article>
+            <b>WHY ACCEPTED KVs ARE REUSABLE</b>
+            <p>
+              Causal masking prevents later draft tokens from affecting earlier
+              positions. If d₁ and d₂ match the target, their target K/V tensors
+              are the same states ordinary autoregressive decoding would have
+              produced.
+            </p>
+          </article>
+          <article>
+            <b>WHAT ROLLBACK MEANS</b>
+            <p>
+              The runtime truncates the logical cache length or releases pages
+              assigned to the first mismatch and its descendants. Accepted
+              target KVs remain in place and require no recomputation.
+            </p>
+          </article>
+          <article>
+            <b>THE BONUS-TOKEN DETAIL</b>
+            <p>
+              A correction token is initially produced as a target logit, so its
+              KV state is normally materialized when that token is processed as
+              the next input. Fused runtimes may hide this one-token lag.
+            </p>
+          </article>
+        </div>
+
+        <div className="kv-authority">
+          <div>
+            <span>DRAFT CACHE</span>
+            <strong>TEMPORARY PROPOSAL STATE</strong>
+          </div>
+          <i>≠</i>
+          <div>
+            <span>TARGET CACHE</span>
+            <strong>AUTHORITATIVE CAUSAL STATE</strong>
+          </div>
+        </div>
+
+        <div className="table-scroll">
+          <table className="terminal-table kv-method-table">
+            <thead>
+              <tr>
+                <th>Method</th>
+                <th>Target KV update</th>
+                <th>Drafter-side state</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Vanilla AR</td>
+                <td>Append one processed token per target pass.</td>
+                <td>No separate draft cache.</td>
+              </tr>
+              <tr>
+                <td>Gemma-style MTP</td>
+                <td>
+                  Retain accepted verification KVs; truncate the rejected
+                  suffix.
+                </td>
+                <td>
+                  Autoregressive draft KV grows through d₁ → d₂ → … and restarts
+                  or truncates after rejection.
+                </td>
+              </tr>
+              <tr>
+                <td>EAGLE-3</td>
+                <td>Use the same accepted-prefix commit rule.</td>
+                <td>
+                  Temporary branch/tree KVs and proxy features are freed for
+                  rejected branches; verified target features become
+                  authoritative.
+                </td>
+              </tr>
+              <tr>
+                <td>DFlash</td>
+                <td>
+                  Target verification constructs the authoritative causal KVs.
+                </td>
+                <td>
+                  Bidirectional masked-block states are temporary and cannot be
+                  copied into the causal target cache.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <aside>
+          <b>IMPLEMENTATION NOTE</b>
+          Physical storage differs across runtimes—contiguous tensors, paged KV
+          blocks, or reserved verification slots—but the logical operation is
+          always retain accepted prefix, discard rejected suffix, continue from
+          the corrected boundary.
+        </aside>
+      </section>
+
       <section className="docs-grid">
         <MethodDoc
           index="PROC 01"
@@ -1163,6 +1453,7 @@ function App() {
         ? "EVALS"
         : "SIMULATOR";
   const [view, setView] = useState<"SIMULATOR" | "DOCS" | "EVALS">(initialView);
+  const [contentScale, setContentScale] = useState(100);
   const [tab, setTab] = useState<
     "EVENT LOG" | "METRIC MATRIX" | "TOKEN INSPECTOR"
   >("EVENT LOG");
@@ -1211,7 +1502,14 @@ function App() {
     navigator.clipboard?.writeText(location.href);
   };
   return (
-    <main>
+    <main
+      style={
+        {
+          "--content-scale": contentScale / 100,
+          "--content-font-size": `${(14 * contentScale) / 100}px`,
+        } as React.CSSProperties
+      }
+    >
       <div className="topline">
         <b>
           SPECDEC-LAB <sup>1.0</sup>
@@ -1249,7 +1547,23 @@ function App() {
             {item}
           </button>
         ))}
-        <em>SELECT MODULE // STATE PERSISTS BETWEEN TABS</em>
+        {view === "SIMULATOR" ? (
+          <em>SELECT MODULE // STATE PERSISTS BETWEEN TABS</em>
+        ) : (
+          <label className="content-size-control">
+            <span>CONTENT TYPE</span>
+            <input
+              type="range"
+              min="90"
+              max="140"
+              step="5"
+              value={contentScale}
+              aria-label="Content font size"
+              onChange={(event) => setContentScale(Number(event.target.value))}
+            />
+            <output>{contentScale}%</output>
+          </label>
+        )}
       </div>
       {view === "SIMULATOR" ? (
         <>
