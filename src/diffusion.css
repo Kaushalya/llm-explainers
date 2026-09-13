@@ -406,8 +406,14 @@ body.diffusion-page:after {
   margin-top: 30px;
 }
 .dl-page footer {
+  display: block;
   padding: 45px 0;
+  border: 0;
   border-top: 1px solid var(--dl-border);
+  color: var(--dl-muted);
+  font-size: 16px;
+  line-height: 1.75;
+  scroll-margin-top: 24px;
 }
 .dl-page footer li {
   padding: 6px 0;

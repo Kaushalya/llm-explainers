@@ -6,6 +6,7 @@ import "./style.css";
 import DiffusionPage from "./DiffusionPage";
 import HomePage from "./HomePage";
 import SiteHeader from "./SiteHeader";
+import TextComments from "./TextComments";
 
 type Method = "AR" | "MTP" | "EAGLE-3" | "DFLASH";
 type Token = { text: string; ok: boolean; source: "T" | "D" };
@@ -2010,11 +2011,22 @@ const rootElement = document.getElementById("root")! as HTMLElement & {
 const appRoot = rootElement.appRoot ?? createRoot(rootElement);
 rootElement.appRoot = appRoot;
 appRoot.render(
-  requestedExplainer === "diffusion" ? (
-    <DiffusionPage />
-  ) : requestedExplainer === "speculative-decoding" || legacyLabRoute ? (
-    <App />
-  ) : (
-    <HomePage />
-  ),
+  <>
+    {requestedExplainer === "diffusion" ? (
+      <DiffusionPage />
+    ) : requestedExplainer === "speculative-decoding" || legacyLabRoute ? (
+      <App />
+    ) : (
+      <HomePage />
+    )}
+    {(requestedExplainer === "diffusion" ||
+      requestedExplainer === "speculative-decoding" ||
+      legacyLabRoute) && (
+      <TextComments
+        pageId={
+          requestedExplainer === "diffusion" ? "diffusion" : "specdec-lab"
+        }
+      />
+    )}
+  </>,
 );

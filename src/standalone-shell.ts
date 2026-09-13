@@ -1,3 +1,6 @@
+import { createElement } from "react";
+import { createRoot } from "react-dom/client";
+import TextComments from "./TextComments";
 import { explainers } from "./explainers";
 import "./site-shell.css";
 
@@ -29,4 +32,10 @@ document.body.insertAdjacentHTML(
     </nav>
     <span class="site-header-note">OPEN NOTEBOOKS FOR MACHINE INTELLIGENCE</span>
   </header>`,
+);
+
+const commentsRoot = document.createElement("div");
+document.body.append(commentsRoot);
+createRoot(commentsRoot).render(
+  createElement(TextComments, { pageId: current || location.pathname }),
 );
