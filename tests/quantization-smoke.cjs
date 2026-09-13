@@ -15,7 +15,7 @@ const path = require("node:path");
       errors = [];
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto(
-      pathToFileURL(path.resolve("quantization-explainer.html")).href,
+      pathToFileURL(path.resolve("posts/quantization-explainer.html")).href,
     );
     const results = await page.evaluate(() => {
       const c = cfg(),

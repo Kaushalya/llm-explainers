@@ -69,7 +69,7 @@ export const explainers: Explainer[] = [
     eyebrow: "PRECISION + PERFORMANCE",
     description:
       "See values become low-bit codes, expose the accuracy tradeoffs, and estimate memory and throughput without confusing storage with compute.",
-    href: "/quantization-explainer.html",
+    href: "/posts/quantization-explainer.html",
     format: "CALCULATE + INSPECT",
     chapters: "4 experiments",
     accent: "amber",

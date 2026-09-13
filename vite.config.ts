@@ -37,7 +37,10 @@ ${content}
     rollupOptions: {
       input: {
         index: resolve(__dirname, "index.html"),
-        quantization: resolve(__dirname, "quantization-explainer.html"),
+        quantization: resolve(
+          __dirname,
+          "posts/quantization-explainer.html",
+        ),
         "posts/speculative-decoding": resolve(
           __dirname,
           "posts/speculative-decoding.html",

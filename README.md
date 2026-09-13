@@ -22,6 +22,7 @@ quantization and speculative-decoding standalone documents.
   navigation and design tokens.
 - `src/site-shell.css` contains shared site-level visual primitives.
 - `src/main.tsx` routes the React homepage, SpecDec lab, and diffusion guide.
+- `posts/` contains standalone explainer documents.
 - `vite.config.ts` adapts the Jekyll-authored speculative-decoding post into a
   valid standalone document without altering its front matter for Jekyll.
 
