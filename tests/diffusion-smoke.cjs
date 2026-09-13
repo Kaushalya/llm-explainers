@@ -103,7 +103,7 @@ const assert = require("node:assert/strict");
     await page.goto("http://127.0.0.1:5174/?explainer=diffusion");
     await page.screenshot({ path: "/tmp/dlm-mobile.png" });
     await page.goto("http://127.0.0.1:5174/");
-    assert.equal(await page.locator(".explainer-card").count(), 4);
+    assert.equal(await page.locator(".explainer-card").count(), 3);
     await page.getByRole("link", { name: /Diffusion language models/ }).click();
     await page
       .getByRole("heading", { name: "Append a token. Or refine a canvas." })

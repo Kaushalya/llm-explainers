@@ -1776,7 +1776,7 @@ function App() {
   };
   return (
     <>
-      <SiteHeader current="specdec-lab" />
+      <SiteHeader current="speculative-decoding" />
       <main
         style={
           {

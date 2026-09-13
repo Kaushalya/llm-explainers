@@ -638,7 +638,7 @@ export default function DiffusionPage() {
         </a>
         <header className="dl-top">
           <a href="/">← ALL EXPLAINERS</a>
-          <span>EXPLAINER / 03</span>
+          <span>EXPLAINER / 02</span>
           <span className="dl-status">● INTERACTIVE FIELD GUIDE</span>
         </header>
         <div className="dl-layout">

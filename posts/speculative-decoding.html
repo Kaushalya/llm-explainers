@@ -1,7 +1,7 @@
 ---
 layout: explainer
-title: "Speculative Decoding: EAGLE vs DFlash vs DSpark vs MTP"
-description: "An interactive explanation of speculative decoding variants, comparing EAGLE, DFlash, DSpark, and the MTP drafters used by Gemma 4 and GLM 5.2."
+title: "Speculative Decoding: EAGLE vs DFlash 2 vs DSpark vs MTP"
+description: "An interactive explanation of speculative decoding variants, comparing EAGLE, DFlash, DFlash 2, DSpark, and the MTP drafters used by Gemma 4 and GLM 5.2."
 category: blog
 categories:
   - Machine Learning
@@ -714,6 +714,13 @@ published: true
 
     .page-nav a::after { content: "↘"; color: var(--accent-2); }
     .page-nav a:hover { color: var(--ink); border-color: rgba(101, 230, 196, .35); transform: translateY(-2px); }
+    .page-nav .lab-launch {
+      border-color: var(--accent-2);
+      background: rgba(101, 230, 196, .12);
+      color: #d8fff4;
+      font-weight: 700;
+    }
+    .page-nav .lab-launch::after { content: "↗"; }
 
     .example {
       max-width: 980px;
@@ -766,7 +773,7 @@ published: true
     .card > h2 + .muted { max-width: 820px; margin-top: 0; }
     .muted, .subtle { color: var(--muted); }
 
-    .overview-card > h2::before, .dimension-card > h2::before, .batch-card > h2::before, .mtp-card > h2::before, .lab-card > h2::before,
+    .overview-card > h2::before, .dimension-card > h2::before, .batch-card > h2::before, .dflash2-card > h2::before, .mtp-card > h2::before, .lab-card > h2::before,
     .comparison-card > h2::before, .algorithm-card > h2::before, .references-card > h2::before, .models-card > h2::before {
       display: block;
       margin-bottom: 9px;
@@ -779,12 +786,13 @@ published: true
     .overview-card > h2::before { content: "01 / mental model"; }
     .dimension-card > h2::before { content: "02 / notation"; }
     .batch-card > h2::before { content: "03 / why it is faster"; }
-    .mtp-card > h2::before { content: "04 / target-attached MTP"; }
-    .lab-card > h2::before { content: "05 / interactive lab"; }
-    .comparison-card > h2::before { content: "06 / matrix"; }
-    .algorithm-card > h2::before { content: "07 / pseudocode"; }
-    .models-card > h2::before { content: "08 / 2026 model support"; }
-    .references-card > h2::before { content: "09 / further reading"; }
+    .dflash2-card > h2::before { content: "04 / parallel path selection"; }
+    .mtp-card > h2::before { content: "05 / target-attached MTP"; }
+    .lab-card > h2::before { content: "06 / interactive lab"; }
+    .comparison-card > h2::before { content: "07 / matrix"; }
+    .algorithm-card > h2::before { content: "08 / pseudocode"; }
+    .models-card > h2::before { content: "09 / 2026 model support"; }
+    .references-card > h2::before { content: "10 / further reading"; }
 
     .specdiag { margin-top: 28px; }
     .specdiag-flow { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
@@ -1139,7 +1147,7 @@ published: true
       font-size: 12px;
     }
 
-    .methods-grid { gap: 14px; }
+    .methods-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
     .method-card { min-height: 390px; padding: 26px; transition: transform .25s ease, border-color .25s ease; }
     .method-card:hover { transform: translateY(-5px); }
 
@@ -1161,6 +1169,10 @@ published: true
       --method: #d06460;
       background: linear-gradient(145deg, #70364f, #422232);
     }
+    .method-card.dflash2 {
+      --method: #65e6c4;
+      background: linear-gradient(145deg, #18514a, #12322f);
+    }
     .method-card.dspark {
       --method: #ef8a80;
       background: linear-gradient(145deg, #9e3e42, #64272f);
@@ -1173,11 +1185,24 @@ published: true
     .method-card p { color: rgba(255,255,255,.82); }
     .method-card.eagle::after { content: "E"; }
     .method-card.dflash::after { content: "D"; }
+    .method-card.dflash2::after { content: "D²"; }
     .method-card.dspark::after { content: "S"; }
     .method-card.mtp::after { content: "M"; }
     .method-card::before { width: 50%; background: linear-gradient(90deg, var(--method), transparent); }
     .method-card h3 { position: relative; z-index: 1; margin-bottom: 14px; font-size: 25px; }
     .method-card .dimbox { margin-top: 22px; }
+
+    .dflash2-card {
+      background:
+        radial-gradient(circle at 92% 10%, rgba(101,230,196,.12), transparent 24rem),
+        linear-gradient(145deg, rgba(12,36,34,.97), rgba(7,19,22,.98));
+    }
+
+    .dflash2-architecture { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 26px; }
+    .dflash2-architecture article { padding: 20px; border: 1px solid var(--line); border-radius: 14px; background: rgba(4,10,15,.46); }
+    .dflash2-architecture h3 { margin-top: 0; color: #d8fff4; }
+    .dflash2-architecture p { margin-bottom: 0; color: var(--muted); }
+    .reported-badge { display: inline-block; margin-top: 18px; color: var(--warn); font: 700 10px/1.4 var(--mono); letter-spacing: .06em; text-transform: uppercase; }
 
     .tag {
       border: 1px solid var(--line);
@@ -1318,7 +1343,14 @@ published: true
     }
 
     .mini-table tbody { display: table; width: 100%; min-width: 780px; border-collapse: collapse; }
-    .compare tbody { min-width: 1180px; }
+    .compare tbody { min-width: 1450px; }
+    .comparison-card .mini-table,
+    .models-card .mini-table,
+    .dflash2-card .mini-table {
+      display: block;
+      max-width: 100%;
+      overflow-x: auto;
+    }
     .mini-table th { background: rgba(4,10,15,.6); color: #83919a; font: 800 9px/1.4 var(--mono); letter-spacing: .08em; }
     .mini-table td, .mini-table th { border-color: var(--line); padding: 14px; }
     .compare td:first-child { color: #e5eaec; }
@@ -1349,6 +1381,7 @@ published: true
       .specdiag-flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .spec-box:not(:last-child)::after { display: none; }
       .methods-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .dflash2-architecture { grid-template-columns: 1fr; }
     }
 
     @media (max-width: 980px) {
@@ -1488,6 +1521,10 @@ published: true
     }
     :root[data-theme="light"] .method-card.dflash {
       background: linear-gradient(145deg, rgba(112,54,79,.2), rgba(112,54,79,.08)), #fff;
+    }
+    :root[data-theme="light"] .method-card.dflash2 {
+      border-color: rgba(8,127,108,.24);
+      background: linear-gradient(145deg, rgba(8,127,108,.11), rgba(255,255,255,.88));
     }
     :root[data-theme="light"] .method-card.dspark {
       background: linear-gradient(145deg, rgba(158,62,66,.2), rgba(158,62,66,.08)), #fff;
@@ -1668,9 +1705,9 @@ published: true
 <!-- explainer-body -->
   <header>
     <div class="eyebrow">Interactive explainer · draft inputs, hidden features, and dimensions</div>
-    <h1>Speculative Decoding:<br><span class="title-method">EAGLE <span class="title-vs">vs</span></span> <span class="title-method">DFlash <span class="title-vs">vs</span></span> <span class="title-method">DSpark <span class="title-vs">vs</span></span> <span class="title-method">MTP</span></h1>
+    <h1>Speculative Decoding:<br><span class="title-method">EAGLE <span class="title-vs">vs</span></span> <span class="title-method">DFlash 2 <span class="title-vs">vs</span></span> <span class="title-method">DSpark <span class="title-vs">vs</span></span> <span class="title-method">MTP</span></h1>
     <p class="lead">
-      This page compares how four speculative decoding drafter families use input features to propose tokens,
+      This page compares how five speculative decoding variants use input features to propose tokens,
       including the MTP designs used by Gemma 4 and GLM 5.2.
       The running example treats <strong>“is”</strong> as the anchor/bonus token produced by the target model:
     </p>
@@ -1683,9 +1720,11 @@ published: true
       <strong>Paris . It is</strong><span class="cursor"></span>
     </div>
     <nav class="page-nav" aria-label="On this page">
+      <a class="lab-launch" href="/?explainer=speculative-decoding">Open SpecDec Lab</a>
       <a href="#overview">Mental model</a>
       <a href="#why-faster">Why it is faster</a>
       <a href="#methods">Compare methods</a>
+      <a href="#dflash2">DFlash 2</a>
       <a href="#mtp">MTP</a>
       <a href="#playground">Run the lab</a>
       <a href="#references">Sources</a>
@@ -1973,7 +2012,7 @@ published: true
       </div>
     </section>
 
-    <section id="methods" class="grid four methods-grid" aria-label="Method summaries">
+    <section id="methods" class="grid methods-grid" aria-label="Method summaries">
       <article class="card method-card eagle">
         <h3>EAGLE / EAGLE-3</h3>
         <span class="tag warn">sequential / tree drafter</span>
@@ -2002,6 +2041,21 @@ published: true
           concat m layers: ℝⁿˣᵐᵈ<br>
           <span class="math"><span class="mi">W</span><sub>c</sub>: ℝ<sup><span class="mi">d</span>×<span class="mi">m</span><span class="mi">d</span></sup></span> → <span class="math"><span class="mi">H</span><sub>ctx</sub> ∈ ℝ<sup><span class="mi">n</span>×<span class="mi">d</span></sup></span><br>
           draft slots: ℝγˣᵈ → logits ℝγˣ|V|
+        </div>
+      </article>
+
+      <article class="card method-card dflash2">
+        <h3>DFlash 2</h3>
+        <span class="tag good">parallel backbone</span>
+        <span class="tag">path selector + local conv</span>
+        <p>
+          Keeps DFlash's one-pass block drafter, adds two-tap dynamic convolutions to strengthen local features,
+          then selects a coherent path through each position's top candidates using lightweight adjacent-pair scores.
+        </p>
+        <div class="dimbox">
+          top-k candidates per position · k = 16 reported<br>
+          pair score Sₜ(a,b) = Uₜ(b) + local compatibility<br>
+          parallel scores → cheap sequential path walk
         </div>
       </article>
 
@@ -2034,6 +2088,76 @@ published: true
           causal draft block → logits ℝ|V|
         </div>
       </article>
+    </section>
+
+    <section id="dflash2" class="card dflash2-card">
+      <h2>DFlash 2: choose a coherent path without rerunning the backbone</h2>
+      <p class="muted">
+        Plain DFlash predicts every draft position in parallel and normally keeps the top-1 token at each slot.
+        DFlash 2, announced by Inco AI in August 2026, preserves that parallel backbone but addresses two failure modes:
+        independently chosen tokens may not fit together, and candidate quality tends to decay near the end of a block.
+      </p>
+
+      <div class="grid dflash2-architecture">
+        <article>
+          <h3>1 · Keep candidate lists</h3>
+          <p>
+            Instead of immediately collapsing each position to one token, retain its top candidates. The reported selector
+            uses the top 16, where recall is much higher than top-1 recall in Inco's Qwen3-4B GSM8K example.
+          </p>
+        </article>
+        <article>
+          <h3>2 · Score local transitions</h3>
+          <p>
+            A 256-dimensional, context-gated bilinear term scores how well candidate b follows candidate a. All adjacent
+            candidate pairs at all positions are scored together; no extra Transformer backbone or LM-head pass is needed.
+          </p>
+        </article>
+        <article>
+          <h3>3 · Repair suffix decay</h3>
+          <p>
+            Two-tap dynamic depthwise convolutions mix each draft representation with its predecessor at every layer.
+            This carries short-range information across the block while all positions remain parallel.
+          </p>
+        </article>
+      </div>
+
+      <div class="pipeline" aria-label="DFlash 2 drafting pipeline">
+        <div class="flow">
+          <span class="token feature">DFlash hidden states</span>
+          <span class="arrow">dynamic local conv</span>
+          <span class="token feature">top-16 per slot</span>
+          <span class="arrow">parallel pair scores</span>
+          <span class="token seq">short path walk</span>
+          <span class="arrow">target verify</span>
+        </div>
+      </div>
+
+      <table class="mini-table">
+        <tr>
+          <th>Matched Qwen3.5-4B comparison</th>
+          <th>MTP</th>
+          <th>DFlash</th>
+          <th>DSpark</th>
+          <th>DFlash 2</th>
+        </tr>
+        <tr>
+          <td>Mean accepted length across five reported benchmarks</td>
+          <td>4.54</td>
+          <td>4.92</td>
+          <td>5.49</td>
+          <td><strong>5.97</strong></td>
+        </tr>
+      </table>
+      <span class="reported-badge">Vendor-reported result · sampled decoding · +1.3% cycle latency versus matched DFlash</span>
+
+      <div class="note">
+        <strong>How it differs:</strong> EAGLE and MTP build draft tokens autoregressively. DSpark keeps a parallel backbone
+        but sequentially adjusts a full-vocabulary distribution and can schedule a shorter verification prefix. DFlash 2
+        computes backbone features, local convolutions, and pair scores in parallel; only the inexpensive walk through
+        precomputed candidate scores is sequential. Target verification—and lossless rejection sampling when sampling—still
+        determines the final output.
+      </div>
     </section>
 
     <section id="mtp" class="card mtp-card">
@@ -2108,8 +2232,9 @@ published: true
           <div class="tabs" role="tablist" aria-label="method selector">
             <button class="active" data-method="eagle" data-index="01" role="tab" aria-selected="true" aria-controls="methodPanel">EAGLE / EAGLE-3</button>
             <button data-method="dflash" data-index="02" role="tab" aria-selected="false" aria-controls="methodPanel" tabindex="-1">DFlash</button>
-            <button data-method="dspark" data-index="03" role="tab" aria-selected="false" aria-controls="methodPanel" tabindex="-1">DSpark</button>
-            <button data-method="mtp" data-index="04" role="tab" aria-selected="false" aria-controls="methodPanel" tabindex="-1">MTP</button>
+            <button data-method="dflash2" data-index="03" role="tab" aria-selected="false" aria-controls="methodPanel" tabindex="-1">DFlash 2</button>
+            <button data-method="dspark" data-index="04" role="tab" aria-selected="false" aria-controls="methodPanel" tabindex="-1">DSpark</button>
+            <button data-method="mtp" data-index="05" role="tab" aria-selected="false" aria-controls="methodPanel" tabindex="-1">MTP</button>
           </div>
 
           <div id="schedulerControls" class="controls" hidden>
@@ -2157,6 +2282,7 @@ published: true
           <th>Question</th>
           <th>EAGLE / EAGLE-3</th>
           <th>DFlash</th>
+          <th>DFlash 2</th>
           <th>DSpark</th>
           <th>MTP (Gemma 4 / GLM 5.2)</th>
         </tr>
@@ -2164,6 +2290,7 @@ published: true
           <td>What is fed to the drafter?</td>
           <td>Fused target features for verified tokens plus token embeddings for sampled/draft tokens.</td>
           <td>Anchor token embedding + mask embeddings, with target hidden features injected as KV context.</td>
+          <td>DFlash inputs plus local-convolution features and the top-k candidates retained at every draft position.</td>
           <td>Same DFlash-like parallel input, then previous sampled token features feed a Markov/RNN sequential head.</td>
           <td>A target/previous-depth representation concatenated with the current sampled-token embedding, then projected into a causal draft block.</td>
         </tr>
@@ -2171,6 +2298,7 @@ published: true
           <td>Uses target hidden states?</td>
           <td>Yes. EAGLE-3 fuses low/mid/high layers for tokens already processed by the target.</td>
           <td>Yes. Selected target layers are concatenated, projected, and injected into draft-layer K/V.</td>
+          <td>Yes. It retains DFlash's target-context injection; the new selector and convolutions operate on draft-side features.</td>
           <td>Yes, inherited from the DFlash-style backbone; DSpark also uses draft hidden states hₖ for confidence.</td>
           <td>Yes. Gemma 4 uses the target's last-layer activations; GLM starts the first draft depth from the main-model representation.</td>
         </tr>
@@ -2178,6 +2306,7 @@ published: true
           <td>Hidden states for unverified draft tokens?</td>
           <td>Not available from the target. EAGLE-3 feeds back its own draft output a as a proxy feature.</td>
           <td>Not available from the target. Future slots are mask positions inside the draft model.</td>
+          <td>Not available from the target. Parallel local convolutions mix neighboring draft representations instead.</td>
           <td>Not available from the target. Future slots are mask/anchor positions plus sequential bias from sampled draft tokens.</td>
           <td>Not available from the target. The MTP module recursively feeds its previous-depth representation and sampled token into the next draft step.</td>
         </tr>
@@ -2185,6 +2314,7 @@ published: true
           <td>Output shape</td>
           <td>One or more draft logits vectors in ℝ|V|, sequential/tree-expanded.</td>
           <td>γ logits vectors: ℝγˣ|V| in one pass.</td>
+          <td>γ top-k candidate lists plus parallel adjacent-pair scores; a short walk selects one path.</td>
           <td>γ adjusted logits vectors: Uₖ+<span class="math"><span class="mi">B</span><sub>k</sub> ∈ ℝ<sup>|<span class="mi">V</span>|</sup></span> sampled left-to-right.</td>
           <td>One logits vector in ℝ|V| per recursive draft step; γ steps form the proposal block.</td>
         </tr>
@@ -2192,6 +2322,7 @@ published: true
           <td>Main tradeoff</td>
           <td>High-quality sequential/tree drafts, but each deeper branch costs another draft step.</td>
           <td>Maximum draft parallelism, but later slots cannot condition on sampled earlier slots.</td>
+          <td>Improves local coherence while keeping the backbone parallel, but stores and scores k² adjacent pairs and still performs a small sequential path walk.</td>
           <td>Parallel backbone plus cheap local dependency and load-aware verification scheduling.</td>
           <td>Tightly coupled and cheap relative to the target, but still serial across draft depth and specific to its target checkpoint.</td>
         </tr>
@@ -2229,6 +2360,22 @@ each draft layer:
   output <span class="math"><span class="rm">logits</span> ∈ ℝ<sup>γ×|<span class="mi">V</span>|</sup></span></code></pre>
         </div>
         <div>
+          <h3>DFlash 2</h3>
+          <pre><code>parallel DFlash 2 backbone:
+  local_conv(x)ₜ = kₜ,₀⊙xₜ + kₜ,₁⊙xₜ₋₁
+  Uₜ, hₜ = draft(masked_block)
+  Cₜ = top_k(Uₜ, 16)
+
+parallel adjacent-pair scores:
+  Sₜ(a,b) = Uₜ(b)
+    + ⟨A(a) ⊙ H(hₜ), B(b)⟩
+
+short sequential walk:
+  start from last verified token
+  choose a path through C₁...Cγ
+  verify selected path with target</code></pre>
+        </div>
+        <div>
           <h3>DSpark</h3>
           <pre><code>parallel backbone:
   <span class="math"><span class="mi">h</span><sub>k</sub> ∈ ℝ<sup><span class="mi">d</span></sup></span>, <span class="math"><span class="mi">U</span><sub>k</sub> ∈ ℝ<sup>|<span class="mi">V</span>|</sup></span>
@@ -2261,7 +2408,7 @@ verify [x¹...xᵞ] with target</code></pre>
     <section class="card models-card">
       <h2>Open-source LLMs using these methods in 2026</h2>
       <p class="muted">
-        “Uses” means that an open draft checkpoint is available for the target model (EAGLE-3, DFlash, and DSpark),
+        “Uses” means that an open draft checkpoint is available for the target model (EAGLE-3, DFlash, DFlash 2, and DSpark),
         or that the released model checkpoint includes a native draft module (MTP). Availability does not mean that
         speculative decoding is enabled by default in every inference stack.
       </p>
@@ -2287,6 +2434,14 @@ verify [x¹...xᵞ] with target</code></pre>
           <td>A separately trained block-diffusion drafter paired with each target checkpoint.</td>
         </tr>
         <tr>
+          <td>DFlash 2</td>
+          <td>
+            <a href="https://huggingface.co/incoai/Qwen3.8-27B-DFlash2" target="_blank" rel="noopener">Qwen3.8-27B</a>
+            and <a href="https://huggingface.co/incoai/Muse-Glimmer-30B-DFlash2" target="_blank" rel="noopener">Muse Glimmer 30B</a>.
+          </td>
+          <td>A separately trained DFlash-compatible drafter with local dynamic convolutions and top-k path selection.</td>
+        </tr>
+        <tr>
           <td>DSpark</td>
           <td>
             <a href="https://github.com/deepseek-ai/DeepSpec#released-checkpoints" target="_blank" rel="noopener">Qwen3 4B, 8B, and 14B; Gemma 4 12B</a>.
@@ -2305,8 +2460,8 @@ verify [x¹...xᵞ] with target</code></pre>
       </table>
       <div class="note direction-note">
         <strong>Direction in 2026:</strong> speculative decoding is moving from stand-alone, serial draft models toward
-        target-co-designed MTP modules and parallel or semi-autoregressive drafters, with confidence- and load-aware
-        scheduling deciding how much speculative work the serving system should verify.
+        target-co-designed MTP modules and parallel or semi-autoregressive drafters. DFlash 2 shows a second direction:
+        improve coherence by selecting among parallel candidates rather than autoregressively recomputing full logits.
       </div>
     </section>
 
@@ -2327,6 +2482,11 @@ verify [x¹...xᵞ] with target</code></pre>
           Jian Chen, Yesheng Liang, and Zhijian Liu. 2026.
           <a href="https://arxiv.org/abs/2602.06036" target="_blank" rel="noopener">DFlash: Block Diffusion for Flash Speculative Decoding</a>.
           arXiv:2602.06036.
+        </li>
+        <li>
+          Inco AI. 2026.
+          <a href="https://inco.ai/blog/dflash2/" target="_blank" rel="noopener">DFlash 2: Keep Drafting Parallel</a>.
+          Architecture description, matched acceptance-length comparisons, latency overhead, and released checkpoints.
         </li>
         <li>
           Xin Cheng, Xingkai Yu, Chenze Shao, Jiashi Li, Yunfan Xiong, et al. 2026.
@@ -2565,6 +2725,100 @@ verify [x¹...xᵞ] with target</code></pre>
                 <span class="token accepted">Paris</span><span class="token accepted">.</span>
               </div>
               <div class="note">Distinctive behavior: DFlash drafts a long block cheaply, but it typically verifies a fixed block even when the tail has high rejection risk.</div>
+            `
+          }
+        ]
+      },
+      dflash2: {
+        title: "DFlash 2",
+        sub: "Keeps DFlash's parallel block backbone, strengthens local features, and selects a coherent top-k path.",
+        steps: [
+          {
+            title: "1. Target model produces an anchor token",
+            html: `
+              <div class="row"><div class="row-title">Verified input</div>
+                <span class="token">The</span><span class="token">capital</span><span class="token">of</span><span class="token">France</span>
+              </div>
+              <div class="row"><div class="row-title">Target emits</div>
+                <span class="token accepted">is</span>
+              </div>
+              <div class="note">DFlash 2 begins from the same verified context and anchor as DFlash. The target's later verification rule is unchanged.</div>
+            `
+          },
+          {
+            title: "2. Parallel backbone keeps several candidates per slot",
+            html: `
+              <div class="row"><div class="row-title">Slot 1 · top candidates</div>
+                <span class="token base">Paris</span><span class="token base">Lyon</span><span class="token base">France</span>
+              </div>
+              <div class="row"><div class="row-title">Slot 2 · top candidates</div>
+                <span class="token base">.</span><span class="token base">is</span><span class="token base">,</span>
+              </div>
+              <div class="row"><div class="row-title">Slot 3 · top candidates</div>
+                <span class="token base">The</span><span class="token base">It</span><span class="token base">and</span>
+              </div>
+              <div class="note">Illustration shows three candidates for space; the reported DFlash 2 selector retains the top 16 at every position. The expensive backbone and LM head still run once for the whole block.</div>
+            `
+          },
+          {
+            title: "3. Dynamic convolutions carry local context in parallel",
+            html: `
+              <div class="pipeline">
+                <div class="flow">
+                  <span class="token accepted">last verified state</span>
+                  <span class="token feature">h₁</span>
+                  <span class="token feature">h₂</span>
+                  <span class="token feature">h₃</span>
+                </div>
+                <div class="flow">
+                  <span class="arrow">two-tap dynamic conv</span>
+                  <span class="token feature">xₜ + local xₜ₋₁</span>
+                  <span class="arrow">at every draft layer</span>
+                </div>
+              </div>
+              <div class="note">Each position mixes its own representation with its immediate predecessor. This is a parallel convolution over positions—not a loop over newly sampled tokens—and targets the suffix decay seen in plain DFlash.</div>
+            `
+          },
+          {
+            title: "4. Score every adjacent candidate pair together",
+            html: `
+              <div class="pipeline">
+                <div class="flow">
+                  <span class="token feature">DFlash logit Uₜ(b)</span>
+                  <span class="arrow">+</span>
+                  <span class="token feature">context-gated local fit(a → b)</span>
+                  <span class="arrow">= Sₜ(a,b)</span>
+                </div>
+              </div>
+              <div class="row"><div class="row-title">High local fit</div>
+                <span class="token seq">is → Paris</span><span class="token seq">Paris → .</span><span class="token seq">. → The</span>
+              </div>
+              <div class="note">All k² adjacent pairs at every position can be scored in parallel. The selector adds about 2M parameters in Inco's reported Qwen3-4B ablation and does not add another Transformer or vocabulary-head pass.</div>
+            `
+          },
+          {
+            title: "5. A cheap walk selects one coherent path",
+            html: `
+              <div class="row"><div class="row-title">Independent top-1</div>
+                <span class="token base">Paris</span><span class="token base">.</span><span class="token rejected">It</span><span class="token dropped">is</span>
+              </div>
+              <div class="row"><div class="row-title">Selected path</div>
+                <span class="token seq">Paris</span><span class="token seq">.</span><span class="token seq">The</span><span class="token seq">city</span>
+              </div>
+              <div class="note">The only sequential part is a short walk through already-computed pair scores. Unlike DSpark's correction head, it does not rewrite a full-vocabulary distribution after each sampled token.</div>
+            `
+          },
+          {
+            title: "6. Target verifies the selected path",
+            html: `
+              <div class="row"><div class="row-title">Target check</div>
+                <span class="token accepted">Paris</span><span class="token accepted">.</span><span class="token accepted">The</span><span class="token rejected">city</span>
+              </div>
+              <div class="row"><div class="row-title">Output</div>
+                <span class="token">The</span><span class="token">capital</span><span class="token">of</span><span class="token">France</span><span class="token">is</span>
+                <span class="token accepted">Paris</span><span class="token accepted">.</span><span class="token accepted">The</span>
+              </div>
+              <div class="note">The selector improves which draft reaches verification; it never bypasses verification. Exact greedy output and properly corrected sampling still follow the target distribution.</div>
             `
           }
         ]

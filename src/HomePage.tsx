@@ -63,9 +63,8 @@ export default function HomePage() {
         </header>
         <div className="explainer-grid">
           {explainers.map((item) => (
-            <a
+            <article
               className={`explainer-card accent-${item.accent}`}
-              href={item.href}
               key={item.id}
             >
               <div className="card-topline">
@@ -79,7 +78,9 @@ export default function HomePage() {
                 <i />
                 <b>{item.index}</b>
               </div>
-              <h3>{item.title}</h3>
+              <h3>
+                <a href={item.href}>{item.title}</a>
+              </h3>
               <p>{item.description}</p>
               <ul aria-label="Topics">
                 {item.concepts.map((concept) => (
@@ -90,7 +91,13 @@ export default function HomePage() {
                 <span>{item.format}</span>
                 <span>{item.chapters}</span>
               </div>
-            </a>
+              <div className="card-actions">
+                <a href={item.href}>OPEN EXPLAINER ↗</a>
+                {item.companion && (
+                  <a href={item.companion.href}>{item.companion.label} ↗</a>
+                )}
+              </div>
+            </article>
           ))}
         </div>
       </section>

@@ -11,6 +11,10 @@ export type Explainer = {
   accent: "green" | "cyan" | "violet" | "amber";
   concepts: string[];
   featured?: boolean;
+  companion?: {
+    label: string;
+    href: string;
+  };
 };
 
 /**
@@ -25,31 +29,21 @@ export const explainers: Explainer[] = [
     shortTitle: "Speculative decoding",
     eyebrow: "INTERACTIVE FIELD GUIDE",
     description:
-      "Compare EAGLE, DFlash, DSpark, and MTP through animated traces, architecture diagrams, and a load-aware playground.",
+      "Compare EAGLE, DFlash, DFlash 2, DSpark, and MTP through animated traces, architecture diagrams, and a load-aware playground.",
     href: "/posts/speculative-decoding.html",
     format: "READ + EXPERIMENT",
     chapters: "6 sections",
     accent: "violet",
     concepts: ["drafting", "verification", "serving"],
     featured: true,
-  },
-  {
-    id: "specdec-lab",
-    index: "02",
-    title: "Speculative decoding terminal lab",
-    shortTitle: "SpecDec lab",
-    eyebrow: "SIDE-BY-SIDE SIMULATOR",
-    description:
-      "Step through the same continuation with vanilla AR, target-attached MTP, EAGLE-3, and DFlash while inspecting work and acceptance.",
-    href: "/?explainer=speculative-decoding",
-    format: "SIMULATE",
-    chapters: "4 methods",
-    accent: "green",
-    concepts: ["tokens", "acceptance", "metrics"],
+    companion: {
+      label: "OPEN SPECDEC LAB",
+      href: "/?explainer=speculative-decoding",
+    },
   },
   {
     id: "diffusion-language-models",
-    index: "03",
+    index: "02",
     title: "Diffusion language models",
     shortTitle: "Diffusion LMs",
     eyebrow: "ITERATIVE GENERATION",
@@ -63,7 +57,7 @@ export const explainers: Explainer[] = [
   },
   {
     id: "quantization",
-    index: "04",
+    index: "03",
     title: "LLM quantization without the hand-waving",
     shortTitle: "Quantization",
     eyebrow: "PRECISION + PERFORMANCE",

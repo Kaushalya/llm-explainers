@@ -23,7 +23,7 @@ export default defineConfig({
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="An interactive explanation of speculative decoding variants, comparing EAGLE, DFlash, DSpark, and MTP.">
+  <meta name="description" content="An interactive explanation of speculative decoding variants, comparing EAGLE, DFlash, DFlash 2, DSpark, and MTP.">
   <title>Speculative Decoding · LLM Explainers</title>
 ${content}
 </body>
@@ -37,10 +37,7 @@ ${content}
     rollupOptions: {
       input: {
         index: resolve(__dirname, "index.html"),
-        quantization: resolve(
-          __dirname,
-          "posts/quantization-explainer.html",
-        ),
+        quantization: resolve(__dirname, "posts/quantization-explainer.html"),
         "posts/speculative-decoding": resolve(
           __dirname,
           "posts/speculative-decoding.html",
