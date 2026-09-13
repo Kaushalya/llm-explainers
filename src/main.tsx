@@ -1,8 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { create } from "zustand";
+import gemmaMtpFigure from "./assets/gemma-mtp-architecture.png";
 import "./style.css";
 import DiffusionPage from "./DiffusionPage";
+import HomePage from "./HomePage";
+import SiteHeader from "./SiteHeader";
 
 type Method = "AR" | "MTP" | "EAGLE-3" | "DFLASH";
 type Token = { text: string; ok: boolean; source: "T" | "D" };
@@ -567,29 +570,42 @@ function DocsPage() {
               <mark>SERIAL DRAFT</mark>
             </div>
             <div className="architecture-diagram">
+              <div className="mtp-target-source">
+                <span>TARGET MODEL</span>
+                <code>LAST-LAYER ACTIVATION hₜ</code>
+              </div>
+              <div className="shared-rail">
+                <small>SHARED EMBEDDING</small>
+                <small>TARGET KV REUSE</small>
+                <small>SHARED LM HEAD</small>
+              </div>
+              <i>↓ TARGET-ATTACHED CONDITIONING</i>
               <div className="arch-input-pair">
-                <code>TARGET hₜ</code>
+                <code>hₜ / PREVIOUS DEPTH</code>
                 <b>+</b>
-                <code>TOKEN e(xₜ)</code>
+                <code>SAMPLED TOKEN e(dᵢ)</code>
               </div>
               <i>↓ CONCAT + PROJECT</i>
-              <div className="arch-drafter">LIGHTWEIGHT MTP BLOCK</div>
-              <i>↓</i>
+              <div className="mtp-recurrent-block">
+                <div className="arch-drafter">ONE LIGHTWEIGHT MTP MODULE</div>
+                <b>↻ REUSE AT EVERY DRAFT DEPTH</b>
+              </div>
               <div className="arch-token-chain draft-chain">
-                <code>d₁</code>
+                <code>d₁ + s₁</code>
                 <b>→</b>
-                <code>d₂</code>
+                <code>d₂ + s₂</code>
                 <b>→</b>
-                <code>d₃</code>
+                <code>d₃ + s₃</code>
                 <b>→</b>
                 <code>d₄</code>
               </div>
               <div className="arch-verify">TARGET VERIFY</div>
             </div>
             <p>
-              A target-attached lightweight module combines target state with
-              the current sampled token. It is recursively reused across draft
-              depths, making proposals cheap but still causally sequential.
+              MTP starts from the target's final-layer state and combines each
+              previous-depth representation with the newly sampled token. The
+              same target-attached module is recursively reused, often sharing
+              embeddings, LM-head weights, and target KV context.
             </p>
           </article>
 
@@ -601,28 +617,45 @@ function DocsPage() {
             </div>
             <div className="architecture-diagram">
               <div className="arch-feature-stack">
-                <code>LOW LAYER</code>
-                <code>MID LAYER</code>
-                <code>HIGH LAYER</code>
+                <code>TARGET LOW</code>
+                <code>TARGET MIDDLE</code>
+                <code>TARGET HIGH</code>
               </div>
-              <i>↓ FEATURE FUSION ↓</i>
-              <div className="arch-drafter">EAGLE-3 DRAFT TRANSFORMER</div>
-              <i>↓ TARGET LM HEAD</i>
-              <div className="arch-token-chain draft-chain">
-                <code>d₁</code>
-                <b>→</b>
-                <code>d₂</code>
-                <b>→</b>
-                <code>d₃</code>
-                <b>→</b>
-                <code>d₄</code>
+              <i>↓ CONCAT + FEATURE FUSION ↓</i>
+              <div className="eagle-fused-feature">FUSED TARGET FEATURE gₜ</div>
+              <i>↓ SEPARATELY TRAINED DRAFTER</i>
+              <div className="eagle-feedback-block">
+                <div className="arch-drafter">EAGLE-3 DRAFT TRANSFORMER</div>
+                <b>↻ OUTPUT aᵢ BECOMES PROXY FEATURE</b>
               </div>
-              <div className="arch-verify">TARGET VERIFY / TREE</div>
+              <div className="eagle-step-flow">
+                <code>gₜ + token</code>
+                <i>→</i>
+                <code>d₁ + a₁</code>
+                <i>→</i>
+                <code>d₂ + a₂</code>
+              </div>
+              <div className="eagle-tree">
+                <span>OPTIONAL TREE</span>
+                <div>
+                  <code>d₁</code>
+                  <b>↗</b>
+                  <code>d₂a</code>
+                  <b>↘</b>
+                  <code>d₃</code>
+                </div>
+                <div>
+                  <i>└</i>
+                  <code>d₂b</code>
+                </div>
+              </div>
+              <div className="arch-verify">TARGET TREE VERIFY</div>
             </div>
             <p>
-              Low-, middle-, and high-layer target features are fused into a
-              representation-aligned drafter. It predicts logits directly and
-              can extend a serial chain or expand candidates into a tree.
+              EAGLE-3 fuses low-, middle-, and high-layer target features. For
+              positions the target has not processed, its separate drafter feeds
+              back output vector aᵢ as a proxy for the missing target feature;
+              candidates can remain a chain or expand into a verification tree.
             </p>
           </article>
 
@@ -950,6 +983,67 @@ function DocsPage() {
           vectors in one pass. Position quality can decay across the block, and
           work after the first verifier mismatch is discarded.
         </MethodDoc>
+      </section>
+
+      <section id="mtp-architecture" className="doc-section mtp-figure-section">
+        <header>
+          <span>ARCHITECTURE DETAIL</span>
+          <h2>GEMMA-STYLE MTP DRAFTS SEQUENTIALLY</h2>
+        </header>
+        <div className="mtp-figure-layout">
+          <figure>
+            <div className="figure-frame">
+              <img
+                src={gemmaMtpFigure}
+                alt="Gemma-style MTP architecture showing target layers producing t2, followed by MTP layer stacks producing t3 and t4 sequentially"
+              />
+            </div>
+            <figcaption>
+              Target-model state produces <b>t₂</b>; the first MTP application
+              consumes that result to produce <b>t₃</b>, and the next
+              application consumes the updated state to produce <b>t₄</b>.
+            </figcaption>
+          </figure>
+          <div className="mtp-figure-notes">
+            <div className="mtp-sequence">
+              <code>TARGET → t₂</code>
+              <i>then</i>
+              <code>MTP(t₂) → t₃</code>
+              <i>then</i>
+              <code>MTP(t₃) → t₄</code>
+            </div>
+            <article>
+              <b>SEQUENTIAL ACROSS TOKEN POSITIONS</b>
+              <p>
+                Each future token is sampled before the following draft step can
+                begin. The blue up-projection path carries the previous MTP
+                representation into the next prediction depth.
+              </p>
+            </article>
+            <article>
+              <b>NOT INDEPENDENT FUTURE-TOKEN HEADS</b>
+              <p>
+                The repeated stacks do not represent several heads predicting
+                t₂, t₃, and t₄ simultaneously. They illustrate autoregressive
+                applications conditioned on the token and state produced by the
+                preceding step.
+              </p>
+            </article>
+            <article>
+              <b>PARALLELISM COMES DURING VERIFICATION</b>
+              <p>
+                After the assistant finishes the draft chain, the large target
+                model scores all proposed positions together in one causal
+                verification pass.
+              </p>
+            </article>
+            <aside>
+              <b>DRAFT</b> t₂ → t₃ → t₄ is sequential
+              <span>·</span>
+              <b>VERIFY</b> [t₂ t₃ t₄] is parallel
+            </aside>
+          </div>
+        </div>
       </section>
 
       <section className="doc-section distinction">
@@ -1623,7 +1717,7 @@ function EvalsPage() {
 function App() {
   const s = useSim();
   const initialView =
-    location.hash === "#docs"
+    location.hash === "#docs" || location.hash === "#mtp-architecture"
       ? "DOCS"
       : location.hash === "#evals"
         ? "EVALS"
@@ -1634,6 +1728,9 @@ function App() {
     "EVENT LOG" | "METRIC MATRIX" | "TOKEN INSPECTOR"
   >("EVENT LOG");
   const [config, setConfig] = useState(false);
+  useEffect(() => {
+    document.title = "Speculative Decoding Lab · LLM Explainers";
+  }, []);
   useEffect(() => {
     if (!s.playing) return;
     const id = setInterval(() => s.step(), 700 / s.speed);
@@ -1678,161 +1775,170 @@ function App() {
     navigator.clipboard?.writeText(location.href);
   };
   return (
-    <main
-      style={
-        {
-          "--content-scale": contentScale / 100,
-          "--content-font-size": `${(14 * contentScale) / 100}px`,
-        } as React.CSSProperties
-      }
-    >
-      <div className="topline">
-        <b>
-          SPECDEC-LAB <sup>1.0</sup>
-        </b>
-        <a className="dl-entry" href="/?explainer=diffusion">DIFFUSION GUIDE ↗</a>
-        <span>MODEL=DEMO-ORACLE</span>
-        <span>SEED={s.seed}</span>
-        <span>MODE=GREEDY</span>
-        <strong>● {s.playing ? "RUNNING" : done ? "COMPLETE" : "READY"}</strong>
-      </div>
-      <div
-        className="app-tabs"
-        role="tablist"
-        aria-label="Application sections"
+    <>
+      <SiteHeader current="specdec-lab" />
+      <main
+        style={
+          {
+            "--content-scale": contentScale / 100,
+            "--content-font-size": `${(14 * contentScale) / 100}px`,
+          } as React.CSSProperties
+        }
       >
-        {(["SIMULATOR", "DOCS", "EVALS"] as const).map((item) => (
-          <button
-            key={item}
-            role="tab"
-            aria-selected={view === item}
-            className={view === item ? "active" : ""}
-            onClick={() => {
-              setView(item);
-              history.replaceState(
-                null,
-                "",
-                item === "SIMULATOR"
-                  ? location.pathname
-                  : `#${item.toLowerCase()}`,
-              );
-            }}
-          >
-            <span>
-              {item === "SIMULATOR" ? "01" : item === "DOCS" ? "02" : "03"}
-            </span>
-            {item}
-          </button>
-        ))}
-        {view === "SIMULATOR" ? (
-          <em>SELECT MODULE // STATE PERSISTS BETWEEN TABS</em>
-        ) : (
-          <label className="content-size-control">
-            <span>CONTENT TYPE</span>
-            <input
-              type="range"
-              min="90"
-              max="140"
-              step="5"
-              value={contentScale}
-              aria-label="Content font size"
-              onChange={(event) => setContentScale(Number(event.target.value))}
-            />
-            <output>{contentScale}%</output>
-          </label>
-        )}
-      </div>
-      {view === "SIMULATOR" ? (
-        <>
-          <div className="prompt">
-            <span>PROMPT›</span>
-            <input
-              value={s.prompt}
-              onChange={(e) => s.setPrompt(e.target.value)}
-            />
-            <i></i>
-          </div>
-          <nav>
-            <Btn hot onClick={() => s.setPlaying(!s.playing)}>
-              {s.playing ? "Ⅱ PAUSE" : "▶ RUN"}
-            </Btn>
-            <Btn onClick={() => s.step()}>STEP OP</Btn>
-            <Btn onClick={() => s.step(true)}>STEP CYCLE</Btn>
-            <Btn onClick={s.reset}>↺ RESET</Btn>
-            <Btn onClick={s.randomize}>⇄ RANDOM</Btn>
-            <Btn onClick={() => setConfig(!config)}>⚙ CONFIG</Btn>
-            <Btn onClick={share}>⇧ SHARE</Btn>
-            <Btn onClick={exportTrace}>↓ JSON</Btn>
-            <label>
-              SPEED{" "}
-              <select
-                value={s.speed}
-                onChange={(e) => s.setSpeed(+e.target.value)}
-              >
-                <option>.5</option>
-                <option>1</option>
-                <option>2</option>
-              </select>
-              ×
+        <div className="topline">
+          <b>
+            SPECDEC-LAB <sup>1.0</sup>
+          </b>
+          <a className="dl-entry" href="/">
+            ALL EXPLAINERS ↗
+          </a>
+          <span>MODEL=DEMO-ORACLE</span>
+          <span>SEED={s.seed}</span>
+          <span>MODE=GREEDY</span>
+          <strong>
+            ● {s.playing ? "RUNNING" : done ? "COMPLETE" : "READY"}
+          </strong>
+        </div>
+        <div
+          className="app-tabs"
+          role="tablist"
+          aria-label="Application sections"
+        >
+          {(["SIMULATOR", "DOCS", "EVALS"] as const).map((item) => (
+            <button
+              key={item}
+              role="tab"
+              aria-selected={view === item}
+              className={view === item ? "active" : ""}
+              onClick={() => {
+                setView(item);
+                history.replaceState(
+                  null,
+                  "",
+                  item === "SIMULATOR"
+                    ? location.pathname
+                    : `#${item.toLowerCase()}`,
+                );
+              }}
+            >
+              <span>
+                {item === "SIMULATOR" ? "01" : item === "DOCS" ? "02" : "03"}
+              </span>
+              {item}
+            </button>
+          ))}
+          {view === "SIMULATOR" ? (
+            <em>SELECT MODULE // STATE PERSISTS BETWEEN TABS</em>
+          ) : (
+            <label className="content-size-control">
+              <span>CONTENT TYPE</span>
+              <input
+                type="range"
+                min="90"
+                max="140"
+                step="5"
+                value={contentScale}
+                aria-label="Content font size"
+                onChange={(event) =>
+                  setContentScale(Number(event.target.value))
+                }
+              />
+              <output>{contentScale}%</output>
             </label>
-          </nav>
-          {config && (
-            <aside className="config">
-              <b>SIMULATION CONFIG</b>
-              <label>
-                RANDOM SEED{" "}
-                <input
-                  type="number"
-                  value={s.seed}
-                  onChange={(e) => s.setSeed(+e.target.value)}
-                />
-              </label>
-              <label>
-                REFERENCE TOKENS <input value={s.target.length} disabled />
-              </label>
-              <label>
-                <input type="checkbox" checked readOnly /> BONUS TARGET TOKEN
-              </label>
-              <label>
-                <input type="checkbox" disabled /> SAMPLING MODE — PLANNED
-              </label>
-            </aside>
           )}
-          <div className="grid">
-            <Panel method="AR" num={1} />
-            <Panel method="MTP" num={2} />
-            <Panel method="EAGLE-3" num={3} />
-            <Panel method="DFLASH" num={4} />
-          </div>
-          <section className="timeline">
-            <header>
-              <b>GLOBAL TIMELINE</b>
-              <span>SIMULATED-TIME ALIGNMENT</span>
-              <em>SIMULATED PERFORMANCE — NOT A HARDWARE BENCHMARK</em>
-            </header>
-            {methods.map((m) => (
-              <div className="track" key={m}>
-                <label>{m}</label>
-                {Array.from({ length: Math.max(1, s.runs[m].passes) }).map(
-                  (_, i) => (
-                    <i
-                      key={i}
-                      style={{
-                        width: m === "AR" ? 28 : m === "DFLASH" ? 74 : 58,
-                      }}
-                      title={`${m} cycle ${i + 1}`}
-                    >
-                      {m === "AR" ? "T" : "V"}
-                    </i>
-                  ),
-                )}
-              </div>
-            ))}
-          </section>
-          <section className="lower">
-            <div className="tabs">
-              {(["EVENT LOG", "METRIC MATRIX", "TOKEN INSPECTOR"] as const).map(
-                (x) => (
+        </div>
+        {view === "SIMULATOR" ? (
+          <>
+            <div className="prompt">
+              <span>PROMPT›</span>
+              <input
+                value={s.prompt}
+                onChange={(e) => s.setPrompt(e.target.value)}
+              />
+              <i></i>
+            </div>
+            <nav>
+              <Btn hot onClick={() => s.setPlaying(!s.playing)}>
+                {s.playing ? "Ⅱ PAUSE" : "▶ RUN"}
+              </Btn>
+              <Btn onClick={() => s.step()}>STEP OP</Btn>
+              <Btn onClick={() => s.step(true)}>STEP CYCLE</Btn>
+              <Btn onClick={s.reset}>↺ RESET</Btn>
+              <Btn onClick={s.randomize}>⇄ RANDOM</Btn>
+              <Btn onClick={() => setConfig(!config)}>⚙ CONFIG</Btn>
+              <Btn onClick={share}>⇧ SHARE</Btn>
+              <Btn onClick={exportTrace}>↓ JSON</Btn>
+              <label>
+                SPEED{" "}
+                <select
+                  value={s.speed}
+                  onChange={(e) => s.setSpeed(+e.target.value)}
+                >
+                  <option>.5</option>
+                  <option>1</option>
+                  <option>2</option>
+                </select>
+                ×
+              </label>
+            </nav>
+            {config && (
+              <aside className="config">
+                <b>SIMULATION CONFIG</b>
+                <label>
+                  RANDOM SEED{" "}
+                  <input
+                    type="number"
+                    value={s.seed}
+                    onChange={(e) => s.setSeed(+e.target.value)}
+                  />
+                </label>
+                <label>
+                  REFERENCE TOKENS <input value={s.target.length} disabled />
+                </label>
+                <label>
+                  <input type="checkbox" checked readOnly /> BONUS TARGET TOKEN
+                </label>
+                <label>
+                  <input type="checkbox" disabled /> SAMPLING MODE — PLANNED
+                </label>
+              </aside>
+            )}
+            <div className="grid">
+              <Panel method="AR" num={1} />
+              <Panel method="MTP" num={2} />
+              <Panel method="EAGLE-3" num={3} />
+              <Panel method="DFLASH" num={4} />
+            </div>
+            <section className="timeline">
+              <header>
+                <b>GLOBAL TIMELINE</b>
+                <span>SIMULATED-TIME ALIGNMENT</span>
+                <em>SIMULATED PERFORMANCE — NOT A HARDWARE BENCHMARK</em>
+              </header>
+              {methods.map((m) => (
+                <div className="track" key={m}>
+                  <label>{m}</label>
+                  {Array.from({ length: Math.max(1, s.runs[m].passes) }).map(
+                    (_, i) => (
+                      <i
+                        key={i}
+                        style={{
+                          width: m === "AR" ? 28 : m === "DFLASH" ? 74 : 58,
+                        }}
+                        title={`${m} cycle ${i + 1}`}
+                      >
+                        {m === "AR" ? "T" : "V"}
+                      </i>
+                    ),
+                  )}
+                </div>
+              ))}
+            </section>
+            <section className="lower">
+              <div className="tabs">
+                {(
+                  ["EVENT LOG", "METRIC MATRIX", "TOKEN INSPECTOR"] as const
+                ).map((x) => (
                   <button
                     className={tab === x ? "active" : ""}
                     onClick={() => setTab(x)}
@@ -1840,59 +1946,75 @@ function App() {
                   >
                     {x}
                   </button>
-                ),
-              )}
-            </div>
-            {tab === "EVENT LOG" ? (
-              <div className="log">
-                {methods.flatMap((m) =>
-                  s.runs[m].events.slice(0, 2).map((e, i) => (
-                    <p key={m + i}>
-                      <time>{String(s.runs[m].cycle).padStart(3, "0")}</time>
-                      <b>{m}</b>
-                      {e}
-                    </p>
-                  )),
-                )}
-              </div>
-            ) : tab === "METRIC MATRIX" ? (
-              <div className="matrix">
-                {methods.map((m) => (
-                  <Metric
-                    key={m}
-                    k={m}
-                    v={`${s.runs[m].committed.length} tok / ${s.runs[m].work.toFixed(2)} work`}
-                  />
                 ))}
               </div>
-            ) : (
-              <p className="notice">
-                Click any token to inspect its display index, source, match
-                status, and cycle metadata.
-              </p>
-            )}
-          </section>
-          <footer>
-            <div>
-              <b>GREEDY MODE</b> Candidate tokens are accepted only when they
-              match the target model's argmax prediction. Stochastic speculative
-              sampling is not simulated in v1.
-            </div>
-            <div>
-              <b>DISPLAY TOKENIZATION</b> Token boundaries are generated locally
-              and may differ from the target API tokenizer.
-            </div>
-          </footer>
-        </>
-      ) : view === "DOCS" ? (
-        <DocsPage />
-      ) : (
-        <EvalsPage />
-      )}
-    </main>
+              {tab === "EVENT LOG" ? (
+                <div className="log">
+                  {methods.flatMap((m) =>
+                    s.runs[m].events.slice(0, 2).map((e, i) => (
+                      <p key={m + i}>
+                        <time>{String(s.runs[m].cycle).padStart(3, "0")}</time>
+                        <b>{m}</b>
+                        {e}
+                      </p>
+                    )),
+                  )}
+                </div>
+              ) : tab === "METRIC MATRIX" ? (
+                <div className="matrix">
+                  {methods.map((m) => (
+                    <Metric
+                      key={m}
+                      k={m}
+                      v={`${s.runs[m].committed.length} tok / ${s.runs[m].work.toFixed(2)} work`}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="notice">
+                  Click any token to inspect its display index, source, match
+                  status, and cycle metadata.
+                </p>
+              )}
+            </section>
+            <footer>
+              <div>
+                <b>GREEDY MODE</b> Candidate tokens are accepted only when they
+                match the target model's argmax prediction. Stochastic
+                speculative sampling is not simulated in v1.
+              </div>
+              <div>
+                <b>DISPLAY TOKENIZATION</b> Token boundaries are generated
+                locally and may differ from the target API tokenizer.
+              </div>
+            </footer>
+          </>
+        ) : view === "DOCS" ? (
+          <DocsPage />
+        ) : (
+          <EvalsPage />
+        )}
+      </main>
+    </>
   );
 }
-createRoot(document.getElementById("root")!).render(
-  new URLSearchParams(location.search).get("explainer") === "diffusion"
-    ? <DiffusionPage /> : <App />
+const requestedExplainer = new URLSearchParams(location.search).get(
+  "explainer",
+);
+const legacyLabRoute =
+  ["#docs", "#evals", "#mtp-architecture"].includes(location.hash) ||
+  location.hash.startsWith("#state=");
+const rootElement = document.getElementById("root")! as HTMLElement & {
+  appRoot?: ReturnType<typeof createRoot>;
+};
+const appRoot = rootElement.appRoot ?? createRoot(rootElement);
+rootElement.appRoot = appRoot;
+appRoot.render(
+  requestedExplainer === "diffusion" ? (
+    <DiffusionPage />
+  ) : requestedExplainer === "speculative-decoding" || legacyLabRoute ? (
+    <App />
+  ) : (
+    <HomePage />
+  ),
 );

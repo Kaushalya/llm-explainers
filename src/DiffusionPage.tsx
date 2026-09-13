@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import "./diffusion.css";
+import SiteHeader from "./SiteHeader";
 
 const sources = [
   [
@@ -629,249 +630,257 @@ export default function DiffusionPage() {
     return () => document.body.classList.remove("diffusion-page");
   }, []);
   return (
-    <main className="dl-page">
-      <a className="dl-skip" href="#dl-basics">
-        Skip to lesson
-      </a>
-      <header className="dl-top">
-        <a href="/">← SPECDEC LAB</a>
-        <span>LLM EXPLAINERS / 02</span>
-        <span className="dl-status">● INTERACTIVE FIELD GUIDE</span>
-      </header>
-      <div className="dl-layout">
-        <nav className="dl-nav" aria-label="Lesson chapters">
-          <b>DIFFUSION / LM</b>
-          {[
-            "basics",
-            "attention",
-            "training",
-            "reverse",
-            "families",
-            "editing",
-            "tradeoffs",
-          ].map((s, i) => (
-            <a key={s} href={`#dl-${s}`}>
-              <span>0{i + 1}</span>
-              {s}
-            </a>
-          ))}
-          <a href="#dl-sources">↗ Reading list</a>
-        </nav>
-        <div className="dl-content">
-          <header className="dl-hero">
-            <span className="dl-kicker">
-              FROM NEXT TOKEN TO ITERATIVE REFINEMENT
-            </span>
-            <h1>
-              Language, one
-              <br />
-              <em>denoising step</em> at a time.
-            </h1>
-            <p>
-              What if a language model started with blanks, then built a
-              sentence across many positions at once? Explore how diffusion
-              turns reconstruction into generation.
-            </p>
-            <div className="dl-hero-foot">
-              <a href="#dl-basics">Start experimenting ↓</a>
-              <span>7 chapters · learn by changing things</span>
-            </div>
-          </header>
-          <section id="dl-basics">
-            <span className="dl-kicker">01 / THE BASIC IDEA</span>
-            <h2>Append a token. Or refine a canvas.</h2>
-            <p>
-              A token is a small unit of text. An autoregressive (AR) language
-              model learns the next-token distribution given a prefix. During
-              ordinary generation it samples a token, appends it, and repeats.
-              Training can process many positions in parallel even though
-              generation has this sequential dependency.
-            </p>
-            <div className="dl-equation">
-              p(x) = ∏<sub>i</sub> p(xᵢ | x₁, …, xᵢ₋₁)
-            </div>
-            <p>
-              A diffusion language model learns to reverse a corruption process.
-              For masked diffusion, corruption replaces text with mask symbols;
-              generation starts with masked output positions and gradually
-              reveals text. A Transformer can still do the prediction—the
-              generative objective and sampling procedure change. <Ref n={0} />
-            </p>
-            <Generation />
-            <Quiz
-              question="If a model reveals four tokens in one round, can the fourth use the newly sampled first token in that same round?"
-              options={["Yes, automatically", "No, only next round"]}
-              correct={1}
-              explanation="Parallel predictions use the same pre-update input. Another forward pass lets the new tokens influence one another."
-            />
-          </section>
-          <section id="dl-attention">
-            <span className="dl-kicker">02 / ARCHITECTURE</span>
-            <h2>Look both ways before filling a blank.</h2>
-            <p>
-              Masked denoisers typically use bidirectional self-attention.
-              Embeddings, Transformer layers, and a vocabulary prediction head
-              remain familiar. Removing a causal mask alone does not make an AR
-              checkpoint a trained diffusion model; it needs a compatible
-              denoising objective.
-            </p>
-            <Attention />
-            <p>
-              Infilling is natural: hold a prefix and suffix fixed and denoise
-              the gap. “Bidirectional” means access to available context on both
-              sides, not knowledge of future answers.
-            </p>
-          </section>
-          <section id="dl-training">
-            <span className="dl-kicker">03 / LEARNING TO RECONSTRUCT</span>
-            <h2>Make the problem harder, then learn to undo it.</h2>
-            <p>
-              Training begins with real, complete text. Sample a noise level and
-              a corruption, run the denoiser once, and penalize incorrect
-              predictions of the hidden originals. Ordinary training does not
-              need to run the entire generation trajectory for each example.
-            </p>
-            <Training />
-            <p>
-              In instruction tuning, the prompt can remain visible while the
-              response is corrupted and reconstructed. From-scratch pretraining
-              (LLaDA) and adaptation of AR weights (Dream) are different routes
-              to a denoiser. <Ref n={0} />
-              <Ref n={6} />
-            </p>
-            <details>
-              <summary>How is this different from BERT?</summary>
+    <>
+      <SiteHeader current="diffusion-language-models" />
+      <main className="dl-page">
+        <a className="dl-skip" href="#dl-basics">
+          Skip to lesson
+        </a>
+        <header className="dl-top">
+          <a href="/">← ALL EXPLAINERS</a>
+          <span>EXPLAINER / 03</span>
+          <span className="dl-status">● INTERACTIVE FIELD GUIDE</span>
+        </header>
+        <div className="dl-layout">
+          <nav className="dl-nav" aria-label="Lesson chapters">
+            <b>DIFFUSION / LM</b>
+            {[
+              "basics",
+              "attention",
+              "training",
+              "reverse",
+              "families",
+              "editing",
+              "tradeoffs",
+            ].map((s, i) => (
+              <a key={s} href={`#dl-${s}`}>
+                <span>0{i + 1}</span>
+                {s}
+              </a>
+            ))}
+            <a href="#dl-sources">↗ Reading list</a>
+          </nav>
+          <div className="dl-content">
+            <header className="dl-hero">
+              <span className="dl-kicker">
+                FROM NEXT TOKEN TO ITERATIVE REFINEMENT
+              </span>
+              <h1>
+                Language, one
+                <br />
+                <em>denoising step</em> at a time.
+              </h1>
               <p>
-                Both learn to predict masked text with bidirectional context. A
-                diffusion model also specifies a corruption schedule, a reverse
-                generative process, and a matching objective across noise
-                levels. BERT’s conventional masked-token training recipe by
-                itself is not that complete diffusion sampler.
+                What if a language model started with blanks, then built a
+                sentence across many positions at once? Explore how diffusion
+                turns reconstruction into generation.
               </p>
-            </details>
-          </section>
-          <section id="dl-reverse">
-            <span className="dl-kicker">
-              04 / FROM PREDICTION TO GENERATION
-            </span>
-            <h2>Two questions at every reverse step.</h2>
-            <p>
-              Which slots should become visible? Which tokens should fill them?
-              The basic absorbing process separates these decisions. Move from
-              high noise t toward lower noise s, eventually reaching clean text
-              at zero.
-            </p>
-            <Reverse />
-            <Quiz
-              question="With t = 0.8 and s = 0.6, what fraction of currently masked positions should be revealed in expectation?"
-              options={["20%", "25%", "75%"]}
-              correct={1}
-              explanation="(0.8 − 0.6) / 0.8 = 0.25. The 0.2 difference is a fraction of all positions, not of the currently masked subset."
-            />
-          </section>
-          <section id="dl-families">
-            <span className="dl-kicker">05 / THE MODEL LANDSCAPE</span>
-            <h2>One idea. Several design choices.</h2>
-            <p>
-              Ask what gets corrupted, how the reverse process is learned, and
-              which positions are generated together. Model names alone hide
-              these differences.
-            </p>
-            <Families />
-            <div className="dl-notes">
-              <article>
-                <h3>Confidence-based decoding</h3>
-                <p>
-                  Prefer higher-confidence predictions when choosing slots to
-                  reveal, leaving uncertain ones for more context. Confidence is
-                  not correctness. This changes the basic random reveal policy.
-                </p>
-              </article>
-              <article>
-                <h3>Remasking & self-conditioning</h3>
-                <p>
-                  Remasking reopens predictions for another attempt.
-                  Self-conditioning feeds a previous prediction back as an input
-                  to refinement. These are distinct techniques and require
-                  compatible model or sampler designs.
-                </p>
-              </article>
-              <article>
-                <h3>Guidance & post-training</h3>
-                <p>
-                  Guidance biases denoising toward a condition or objective;
-                  stronger guidance can reduce diversity. Supervised tuning and
-                  reinforcement learning shape useful responses and behavior,
-                  beyond simply reconstructing text.
-                </p>
-              </article>
-              <article>
-                <h3>MoE & precision</h3>
-                <p>
-                  A mixture of experts activates a subset of parameters per
-                  token or block. Quantization lowers numerical precision. Both
-                  can reduce resource costs, but neither defines diffusion.
-                  LLaDA2.2 combines block routing and editing. <Ref n={7} />
-                </p>
-              </article>
-            </div>
-          </section>
-          <section id="dl-editing">
-            <span className="dl-kicker">06 / LEARNING TO CHANGE YOUR MIND</span>
-            <h2>Filling blanks is not the same as editing.</h2>
-            <p>
-              Basic absorbing diffusion only reveals masks. To revise visible
-              words, reopen or replace them. To fix a missing phrase or remove a
-              duplicate, you may also need to change the sequence length.
-            </p>
-            <Editing />
-            <Quiz
-              question="Which operation requires more than remasking a fixed set of token slots?"
-              options={["Replace “cat” with “dog”", "Insert an extra word"]}
-              correct={1}
-              explanation="Remasking changes the contents of existing slots. Insertion changes the canvas length; an editing mechanism must support that explicitly."
-            />
-          </section>
-          <section id="dl-tradeoffs">
-            <span className="dl-kicker">07 / WHEN PARALLELISM PAYS</span>
-            <h2>Count the work, not just the rounds.</h2>
-            <p>
-              AR decoding can reuse keys and values for its unchanged prefix.
-              Full bidirectional denoising changes representations as slots
-              change, so ordinary exact KV reuse is harder. Block-causal designs
-              can retain a completed prefix cache while refining the current
-              block. <Ref n={5} />
-            </p>
-            <Cost />
-            <div className="dl-takeaway">
-              <h3>You now have a way to read a DLM paper.</h3>
+              <div className="dl-hero-foot">
+                <a href="#dl-basics">Start experimenting ↓</a>
+                <span>7 chapters · learn by changing things</span>
+              </div>
+            </header>
+            <section id="dl-basics">
+              <span className="dl-kicker">01 / THE BASIC IDEA</span>
+              <h2>Append a token. Or refine a canvas.</h2>
               <p>
-                Identify the corrupted state, the training target, the attention
-                pattern, the reveal or edit policy, and the cost per denoising
-                round. Then compare quality and latency under the same hardware
-                and workload—not tokens per second alone.
+                A token is a small unit of text. An autoregressive (AR) language
+                model learns the next-token distribution given a prefix. During
+                ordinary generation it samples a token, appends it, and repeats.
+                Training can process many positions in parallel even though
+                generation has this sequential dependency.
               </p>
-            </div>
-          </section>
-          <footer id="dl-sources">
-            <span className="dl-kicker">CONTINUE EXPLORING</span>
-            <h2>The original sources</h2>
-            <p>
-              Representative families, not a leaderboard. Model-specific details
-              checked September 13, 2026. All experiments on this page are local
-              teaching simulations.
-            </p>
-            <ol>
-              {sources.map(([name, url]) => (
-                <li key={url}>
-                  <a href={url}>{name} ↗</a>
-                </li>
-              ))}
-            </ol>
-            <a href="/">← Back to speculative decoding</a>
-          </footer>
+              <div className="dl-equation">
+                p(x) = ∏<sub>i</sub> p(xᵢ | x₁, …, xᵢ₋₁)
+              </div>
+              <p>
+                A diffusion language model learns to reverse a corruption
+                process. For masked diffusion, corruption replaces text with
+                mask symbols; generation starts with masked output positions and
+                gradually reveals text. A Transformer can still do the
+                prediction—the generative objective and sampling procedure
+                change. <Ref n={0} />
+              </p>
+              <Generation />
+              <Quiz
+                question="If a model reveals four tokens in one round, can the fourth use the newly sampled first token in that same round?"
+                options={["Yes, automatically", "No, only next round"]}
+                correct={1}
+                explanation="Parallel predictions use the same pre-update input. Another forward pass lets the new tokens influence one another."
+              />
+            </section>
+            <section id="dl-attention">
+              <span className="dl-kicker">02 / ARCHITECTURE</span>
+              <h2>Look both ways before filling a blank.</h2>
+              <p>
+                Masked denoisers typically use bidirectional self-attention.
+                Embeddings, Transformer layers, and a vocabulary prediction head
+                remain familiar. Removing a causal mask alone does not make an
+                AR checkpoint a trained diffusion model; it needs a compatible
+                denoising objective.
+              </p>
+              <Attention />
+              <p>
+                Infilling is natural: hold a prefix and suffix fixed and denoise
+                the gap. “Bidirectional” means access to available context on
+                both sides, not knowledge of future answers.
+              </p>
+            </section>
+            <section id="dl-training">
+              <span className="dl-kicker">03 / LEARNING TO RECONSTRUCT</span>
+              <h2>Make the problem harder, then learn to undo it.</h2>
+              <p>
+                Training begins with real, complete text. Sample a noise level
+                and a corruption, run the denoiser once, and penalize incorrect
+                predictions of the hidden originals. Ordinary training does not
+                need to run the entire generation trajectory for each example.
+              </p>
+              <Training />
+              <p>
+                In instruction tuning, the prompt can remain visible while the
+                response is corrupted and reconstructed. From-scratch
+                pretraining (LLaDA) and adaptation of AR weights (Dream) are
+                different routes to a denoiser. <Ref n={0} />
+                <Ref n={6} />
+              </p>
+              <details>
+                <summary>How is this different from BERT?</summary>
+                <p>
+                  Both learn to predict masked text with bidirectional context.
+                  A diffusion model also specifies a corruption schedule, a
+                  reverse generative process, and a matching objective across
+                  noise levels. BERT’s conventional masked-token training recipe
+                  by itself is not that complete diffusion sampler.
+                </p>
+              </details>
+            </section>
+            <section id="dl-reverse">
+              <span className="dl-kicker">
+                04 / FROM PREDICTION TO GENERATION
+              </span>
+              <h2>Two questions at every reverse step.</h2>
+              <p>
+                Which slots should become visible? Which tokens should fill
+                them? The basic absorbing process separates these decisions.
+                Move from high noise t toward lower noise s, eventually reaching
+                clean text at zero.
+              </p>
+              <Reverse />
+              <Quiz
+                question="With t = 0.8 and s = 0.6, what fraction of currently masked positions should be revealed in expectation?"
+                options={["20%", "25%", "75%"]}
+                correct={1}
+                explanation="(0.8 − 0.6) / 0.8 = 0.25. The 0.2 difference is a fraction of all positions, not of the currently masked subset."
+              />
+            </section>
+            <section id="dl-families">
+              <span className="dl-kicker">05 / THE MODEL LANDSCAPE</span>
+              <h2>One idea. Several design choices.</h2>
+              <p>
+                Ask what gets corrupted, how the reverse process is learned, and
+                which positions are generated together. Model names alone hide
+                these differences.
+              </p>
+              <Families />
+              <div className="dl-notes">
+                <article>
+                  <h3>Confidence-based decoding</h3>
+                  <p>
+                    Prefer higher-confidence predictions when choosing slots to
+                    reveal, leaving uncertain ones for more context. Confidence
+                    is not correctness. This changes the basic random reveal
+                    policy.
+                  </p>
+                </article>
+                <article>
+                  <h3>Remasking & self-conditioning</h3>
+                  <p>
+                    Remasking reopens predictions for another attempt.
+                    Self-conditioning feeds a previous prediction back as an
+                    input to refinement. These are distinct techniques and
+                    require compatible model or sampler designs.
+                  </p>
+                </article>
+                <article>
+                  <h3>Guidance & post-training</h3>
+                  <p>
+                    Guidance biases denoising toward a condition or objective;
+                    stronger guidance can reduce diversity. Supervised tuning
+                    and reinforcement learning shape useful responses and
+                    behavior, beyond simply reconstructing text.
+                  </p>
+                </article>
+                <article>
+                  <h3>MoE & precision</h3>
+                  <p>
+                    A mixture of experts activates a subset of parameters per
+                    token or block. Quantization lowers numerical precision.
+                    Both can reduce resource costs, but neither defines
+                    diffusion. LLaDA2.2 combines block routing and editing.{" "}
+                    <Ref n={7} />
+                  </p>
+                </article>
+              </div>
+            </section>
+            <section id="dl-editing">
+              <span className="dl-kicker">
+                06 / LEARNING TO CHANGE YOUR MIND
+              </span>
+              <h2>Filling blanks is not the same as editing.</h2>
+              <p>
+                Basic absorbing diffusion only reveals masks. To revise visible
+                words, reopen or replace them. To fix a missing phrase or remove
+                a duplicate, you may also need to change the sequence length.
+              </p>
+              <Editing />
+              <Quiz
+                question="Which operation requires more than remasking a fixed set of token slots?"
+                options={["Replace “cat” with “dog”", "Insert an extra word"]}
+                correct={1}
+                explanation="Remasking changes the contents of existing slots. Insertion changes the canvas length; an editing mechanism must support that explicitly."
+              />
+            </section>
+            <section id="dl-tradeoffs">
+              <span className="dl-kicker">07 / WHEN PARALLELISM PAYS</span>
+              <h2>Count the work, not just the rounds.</h2>
+              <p>
+                AR decoding can reuse keys and values for its unchanged prefix.
+                Full bidirectional denoising changes representations as slots
+                change, so ordinary exact KV reuse is harder. Block-causal
+                designs can retain a completed prefix cache while refining the
+                current block. <Ref n={5} />
+              </p>
+              <Cost />
+              <div className="dl-takeaway">
+                <h3>You now have a way to read a DLM paper.</h3>
+                <p>
+                  Identify the corrupted state, the training target, the
+                  attention pattern, the reveal or edit policy, and the cost per
+                  denoising round. Then compare quality and latency under the
+                  same hardware and workload—not tokens per second alone.
+                </p>
+              </div>
+            </section>
+            <footer id="dl-sources">
+              <span className="dl-kicker">CONTINUE EXPLORING</span>
+              <h2>The original sources</h2>
+              <p>
+                Representative families, not a leaderboard. Model-specific
+                details checked September 13, 2026. All experiments on this page
+                are local teaching simulations.
+              </p>
+              <ol>
+                {sources.map(([name, url]) => (
+                  <li key={url}>
+                    <a href={url}>{name} ↗</a>
+                  </li>
+                ))}
+              </ol>
+              <a href="/">← Back to all explainers</a>
+            </footer>
+          </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </>
   );
 }

@@ -12,6 +12,7 @@ tags:
 comments: false
 published: true
 ---
+  <script type="module" src="/src/standalone-shell.ts" data-explainer-shell data-current="speculative-decoding"></script>
   <style>
     :root {
       --bg: #0b1020;
@@ -1368,11 +1369,12 @@ published: true
     }
 
     @media (max-width: 680px) {
+      html, body { max-width: 100%; overflow-x: hidden; }
       header { padding: 42px 18px 34px; }
       header::before, header::after { display: none; }
       h1 { font-size: clamp(42px, 15vw, 64px); }
       h1 .title-method { display: block; }
-      .eyebrow { max-width: 100%; font-size: 9px; }
+      .eyebrow { width: auto; max-width: 100%; font-size: 9px; }
       .example { align-items: flex-start; padding: 16px; }
       .example > span:not(.cursor) { flex-basis: 100%; margin-top: 5px; }
       main { padding: 0 14px 54px; }
@@ -1382,7 +1384,9 @@ published: true
       .spec-box, .method-card { min-height: auto; }
       .methods-grid { grid-template-columns: 1fr; }
       .speed-panel { padding: 16px; }
-      .pass-row { grid-template-columns: 68px minmax(0, 1fr) auto auto; }
+      .speedup-grid, .speed-panel, .versus { width: 100%; min-width: 0; }
+      .pass-row { grid-template-columns: 1fr; }
+      .pass-arrow { display: none; }
       .speed-result { grid-template-columns: 1fr; }
       .request-row { grid-template-columns: 1fr; }
       .tabs { grid-template-columns: 1fr; }
