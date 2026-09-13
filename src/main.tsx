@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { create } from "zustand";
 import "./style.css";
+import DiffusionPage from "./DiffusionPage";
 
 type Method = "AR" | "MTP" | "EAGLE-3" | "DFLASH";
 type Token = { text: string; ok: boolean; source: "T" | "D" };
@@ -1689,6 +1690,7 @@ function App() {
         <b>
           SPECDEC-LAB <sup>1.0</sup>
         </b>
+        <a className="dl-entry" href="/?explainer=diffusion">DIFFUSION GUIDE ↗</a>
         <span>MODEL=DEMO-ORACLE</span>
         <span>SEED={s.seed}</span>
         <span>MODE=GREEDY</span>
@@ -1890,4 +1892,7 @@ function App() {
     </main>
   );
 }
-createRoot(document.getElementById("root")!).render(<App />);
+createRoot(document.getElementById("root")!).render(
+  new URLSearchParams(location.search).get("explainer") === "diffusion"
+    ? <DiffusionPage /> : <App />
+);
