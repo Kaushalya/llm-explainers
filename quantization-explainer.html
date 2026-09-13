@@ -1,0 +1,1797 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LLM Quantization Explained — accuracy vs memory vs FLOPs</title>
+    <style>
+      :root {
+        --bg: #0b0f14;
+        --bg2: #11161f;
+        --panel: #141b26;
+        --panel2: #182130;
+        --line: #243144;
+        --text: #d7e2ee;
+        --dim: #8fa3b8;
+        --faint: #9bafc4;
+        --cyan: #39c5d8;
+        --green: #4ade80;
+        --amber: #f5b451;
+        --red: #f3796c;
+        --magenta: #d17ae0;
+        --blue: #6aa9ff;
+        --mono:
+          ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono",
+          monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          16px/1.6 system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+      }
+      .wrap {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+      header {
+        padding: 56px 0 24px;
+        border-bottom: 1px solid var(--line);
+      }
+      h1 {
+        font-size: 2rem;
+        margin: 0 0 8px;
+      }
+      h1 .q {
+        color: var(--cyan);
+      }
+      .sub {
+        color: var(--dim);
+        max-width: 760px;
+      }
+      nav {
+        position: sticky;
+        top: 0;
+        background: rgba(11, 15, 20, 0.92);
+        backdrop-filter: blur(6px);
+        border-bottom: 1px solid var(--line);
+        z-index: 10;
+      }
+      nav .wrap {
+        display: flex;
+        gap: 22px;
+        flex-wrap: wrap;
+        padding-top: 10px;
+        padding-bottom: 10px;
+      }
+      nav a {
+        color: var(--dim);
+        text-decoration: none;
+        font-size: 0.9rem;
+      }
+      nav a:hover {
+        color: var(--cyan);
+      }
+      section {
+        padding: 52px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      h2 {
+        font-size: 1.45rem;
+        margin: 0 0 6px;
+      }
+      h2 .n {
+        color: var(--faint);
+        font-family: var(--mono);
+        font-size: 1rem;
+        margin-right: 8px;
+      }
+      .lead {
+        color: var(--dim);
+        max-width: 840px;
+        margin: 0 0 26px;
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 16px;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 18px 20px;
+      }
+      .card h3 {
+        margin: 0 0 6px;
+        font-size: 1.02rem;
+      }
+      .card p {
+        margin: 0;
+        color: var(--dim);
+        font-size: 0.92rem;
+      }
+      .badge {
+        display: inline-block;
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        padding: 2px 8px;
+        border-radius: 20px;
+        border: 1px solid var(--line);
+        color: var(--cyan);
+        margin-bottom: 10px;
+      }
+      .badge.wa {
+        color: var(--amber);
+      }
+      .badge.qat {
+        color: var(--green);
+      }
+      .badge.ext {
+        color: var(--magenta);
+      }
+      .badge.base {
+        color: var(--dim);
+      }
+      .badge.kv {
+        color: var(--blue);
+      }
+      .callout {
+        background: linear-gradient(180deg, #12222a, #101a22);
+        border: 1px solid #1f3a46;
+        border-left: 3px solid var(--cyan);
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin: 22px 0;
+        font-size: 0.95rem;
+      }
+      .callout b {
+        color: var(--cyan);
+      }
+      .warn {
+        border-left-color: var(--amber);
+        background: linear-gradient(180deg, #241d10, #181510);
+        border-color: #46341f;
+      }
+      .warn b {
+        color: var(--amber);
+      }
+      code,
+      .mono {
+        font-family: var(--mono);
+        font-size: 0.88em;
+        color: #bcd0e5;
+        background: #0d131b;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 1px 6px;
+      }
+      /* controls */
+      .controls {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 14px 16px;
+        margin-bottom: 18px;
+      }
+      .ctl {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .ctl label {
+        font-size: 0.72rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--faint);
+      }
+      select,
+      input[type="range"] {
+        background: var(--bg2);
+        color: var(--text);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 7px 10px;
+        font: inherit;
+        font-size: 0.9rem;
+      }
+      input[type="range"] {
+        padding: 0;
+        width: 150px;
+        accent-color: var(--cyan);
+      }
+      .check {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.88rem;
+        color: var(--dim);
+        padding-bottom: 7px;
+      }
+      .check input {
+        accent-color: var(--amber);
+        width: 16px;
+        height: 16px;
+      }
+      .valrow {
+        display: flex;
+        justify-content: space-between;
+        color: var(--faint);
+        font-size: 0.72rem;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        background: var(--bg2);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+      }
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 12px;
+        margin-top: 14px;
+      }
+      .metric {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px 14px;
+      }
+      .metric .k {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--faint);
+      }
+      .metric .v {
+        font-family: var(--mono);
+        font-size: 1.25rem;
+        color: var(--cyan);
+      }
+      .metric .v.good {
+        color: var(--green);
+      }
+      .metric .v.bad {
+        color: var(--red);
+      }
+      .metric .v.mid {
+        color: var(--amber);
+      }
+      .formula {
+        margin-top: 14px;
+      }
+      /* gallery */
+      .mcard {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 20px 22px;
+        margin-bottom: 16px;
+      }
+      .mcard h3 {
+        margin: 2px 0 4px;
+        font-size: 1.08rem;
+      }
+      .mcard .tag {
+        color: var(--faint);
+        font-size: 0.86rem;
+        margin: 0 0 10px;
+      }
+      .mcard .flow {
+        font-family: var(--mono);
+        font-size: 0.8rem;
+        color: #9fd8e2;
+        background: #0d131b;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 10px 12px;
+        white-space: pre;
+        overflow-x: auto;
+        margin: 12px 0;
+      }
+      .cols {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0 24px;
+      }
+      @media (max-width: 720px) {
+        .cols {
+          grid-template-columns: 1fr;
+        }
+      }
+      .mcard ul {
+        margin: 8px 0 0;
+        padding-left: 18px;
+        font-size: 0.9rem;
+        color: var(--dim);
+      }
+      .mcard li {
+        margin-bottom: 5px;
+      }
+      .pro::marker {
+        content: "+ ";
+      }
+      .con::marker {
+        content: "− ";
+      }
+      .pro {
+        color: #a8d8b8;
+      }
+      .con {
+        color: #e5b7ae;
+      }
+      .use {
+        margin-top: 12px;
+        font-size: 0.88rem;
+        color: var(--dim);
+      }
+      .use b {
+        color: var(--text);
+      }
+      /* calculator */
+      .calcgrid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+      }
+      @media (max-width: 900px) {
+        .calcgrid {
+          grid-template-columns: 1fr;
+        }
+      }
+      .calcgrid > * {
+        min-width: 0;
+      }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 18px 20px;
+      }
+      .panel h3 {
+        margin: 0 0 12px;
+        font-size: 0.95rem;
+        color: var(--dim);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .fit {
+        font-family: var(--mono);
+        font-size: 0.9rem;
+        border-radius: 6px;
+        padding: 8px 12px;
+        margin-bottom: 14px;
+      }
+      .fit.ok {
+        background: #10231a;
+        border: 1px solid #1f4a30;
+        color: var(--green);
+      }
+      .fit.no {
+        background: #241414;
+        border: 1px solid #5a2626;
+        color: var(--red);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+      }
+      th {
+        text-align: left;
+        color: var(--faint);
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        border-bottom: 1px solid var(--line);
+        padding: 8px 10px;
+        white-space: nowrap;
+      }
+      td {
+        border-bottom: 1px solid #1a2333;
+        padding: 8px 10px;
+        font-family: var(--mono);
+        font-size: 0.84rem;
+        white-space: nowrap;
+      }
+      tr.sel td {
+        background: #132531;
+      }
+      tr:hover td {
+        background: #101a26;
+        cursor: pointer;
+      }
+      .membar {
+        display: flex;
+        height: 22px;
+        border-radius: 5px;
+        overflow: hidden;
+        margin: 10px 0 4px;
+        background: #0d131b;
+      }
+      .membar .w {
+        background: #2f7f8f;
+      }
+      .membar .k {
+        background: #7a5aa0;
+      }
+      .legend {
+        display: flex;
+        gap: 16px;
+        font-size: 0.78rem;
+        color: var(--dim);
+        margin-top: 4px;
+      }
+      .dot {
+        display: inline-block;
+        width: 9px;
+        height: 9px;
+        border-radius: 2px;
+        margin-right: 5px;
+      }
+      .bigs {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+      svg text {
+        font-family: var(--mono);
+      }
+      .tipbox {
+        font-size: 0.85rem;
+        color: var(--dim);
+      }
+      .floeq {
+        margin: 18px 0;
+      }
+      .floerow {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 8px 0;
+      }
+      .floelabel {
+        width: 170px;
+        font-family: var(--mono);
+        font-size: 0.82rem;
+        color: var(--dim);
+        text-align: right;
+        flex-shrink: 0;
+      }
+      .fbar {
+        height: 20px;
+        border-radius: 4px;
+      }
+      .fb-bytes {
+        background: #2f7f8f;
+      }
+      .fb-flops {
+        background: #8f6f2f;
+      }
+      .fbval {
+        font-family: var(--mono);
+        font-size: 0.8rem;
+        color: var(--faint);
+      }
+      footer {
+        padding: 34px 0 60px;
+        color: var(--faint);
+        font-size: 0.85rem;
+      }
+      .guidegrid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 16px;
+      }
+      .gcard {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 16px 18px;
+      }
+      .gcard .if {
+        color: var(--cyan);
+        font-family: var(--mono);
+        font-size: 0.85rem;
+        margin-bottom: 6px;
+      }
+      .gcard .then {
+        font-size: 0.94rem;
+      }
+      .gcard .then b {
+        color: var(--text);
+      }
+      .gcard p {
+        color: var(--dim);
+        font-size: 0.85rem;
+        margin: 6px 0 0;
+      }
+      .disc {
+        font-size: 0.78rem;
+        color: var(--faint);
+        margin-top: 10px;
+      }
+
+      a {
+        color: var(--cyan);
+        text-underline-offset: 3px;
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+      button {
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        padding: 9px 13px;
+        background: var(--panel2);
+        color: var(--text);
+        cursor: pointer;
+        min-height: 44px;
+      }
+      button[aria-pressed="true"] {
+        border-color: var(--cyan);
+        background: #173849;
+      }
+      input[type="range"] {
+        min-height: 32px;
+        max-width: 100%;
+      }
+      :focus-visible {
+        outline: 3px solid var(--amber);
+        outline-offset: 3px;
+      }
+      section {
+        scroll-margin-top: 110px;
+      }
+      .eyebrow {
+        color: var(--cyan);
+        font: 12px var(--mono);
+        letter-spacing: 0.08em;
+      }
+      .quiz {
+        border-left: 3px solid var(--amber);
+        padding: 18px 22px;
+        background: var(--panel);
+        margin: 24px 0;
+      }
+      .quiz > b {
+        color: var(--amber);
+        font: 12px var(--mono);
+      }
+      .quiz button {
+        margin: 4px;
+      }
+      .feedback {
+        min-height: 2em;
+      }
+      .inspect-steps {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+      }
+      .inspect-steps > div {
+        padding: 16px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        overflow-wrap: anywhere;
+      }
+      .inspect-steps strong {
+        display: block;
+        font: 20px var(--mono);
+        color: var(--cyan);
+        margin-top: 8px;
+      }
+      .formula {
+        overflow-wrap: anywhere;
+      }
+      .cards,
+      .guidegrid {
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+      }
+      .memory-row {
+        display: grid;
+        grid-template-columns: 200px 1fr 100px;
+        gap: 14px;
+        align-items: center;
+        margin: 14px 0;
+      }
+      .memory-track {
+        height: 26px;
+        background: var(--panel);
+        position: relative;
+        display: flex;
+      }
+      .memory-track .capacity {
+        position: absolute;
+        height: 34px;
+        top: -4px;
+        border-left: 2px dashed var(--amber);
+      }
+      .memory-track span {
+        height: 100%;
+      }
+      .memory-row button {
+        text-align: left;
+      }
+      .memory-row output {
+        font: 13px var(--mono);
+      }
+      .experiment-prompt {
+        border-left: 2px solid var(--cyan);
+        padding-left: 16px;
+      }
+      details {
+        margin: 22px 0;
+      }
+      summary {
+        cursor: pointer;
+        color: var(--cyan);
+      }
+      .legend {
+        flex-wrap: wrap;
+      }
+      .flow {
+        white-space: pre-wrap !important;
+      }
+      canvas {
+        max-width: 100%;
+      }
+      th,
+      td {
+        padding: 8px;
+      }
+      footer {
+        color: var(--dim);
+      }
+      @media (max-width: 650px) {
+        .wrap {
+          padding-inline: 16px;
+        }
+        .inspect-steps {
+          grid-template-columns: 1fr 1fr;
+        }
+        .memory-row {
+          grid-template-columns: 1fr 90px;
+          gap: 8px;
+        }
+        .memory-track {
+          grid-column: 1/-1;
+          grid-row: 2;
+        }
+        .memory-row button {
+          font-size: 13px;
+        }
+        .controls {
+          padding: 12px;
+        }
+        .ctl {
+          max-width: 100%;
+        }
+        select {
+          max-width: 100%;
+          width: 100%;
+        }
+        .bigs {
+          grid-template-columns: 1fr 1fr;
+        }
+        nav .wrap {
+          gap: 8px 16px;
+        }
+        nav a {
+          font-size: 12px;
+        }
+        h1 {
+          font-size: 28px;
+        }
+        .panel {
+          padding: 16px;
+        }
+        .mcard {
+          padding: 18px;
+        }
+        .floerow {
+          flex-wrap: wrap;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="wrap">
+      <a href="./index.html">← LLM Explainers</a>
+      <p class="eyebrow">
+        INTERACTIVE FIELD GUIDE · NUMBERS, MEMORY, AND EXECUTION
+      </p>
+      <h1><span class="q">Quantization</span> for LLM deployment</h1>
+      <p class="sub">
+        Interactive guide to shrinking 16-bit models into 8-, 4-, and even 2-bit
+        formats — and to the three-way tradeoff every deployment actually makes:
+        <b>accuracy</b> you keep, <b>memory</b> you save, and what happens to
+        <b>arithmetic cost</b> and latency. Change a number, inspect the
+        rounding, and test which resource actually limits decoding.
+      </p>
+    </header>
+
+    <nav>
+      <div class="wrap">
+        <a href="#why">Why quantize</a>
+        <a href="#playground">How it works</a>
+        <a href="#methods">Methods</a>
+        <a href="#calculator">Calculator</a>
+        <a href="#tradeoffs">Memory comparison</a>
+        <a href="#guide">Decision guide</a>
+      </div>
+    </nav>
+
+    <!-- ============ WHY ============ -->
+    <section id="why" class="wrap">
+      <h2><span class="n">01</span>Fewer bits, the same model shape</h2>
+      <p class="lead">
+        A weight is a learned number. An activation is an intermediate result
+        produced while the model runs. Quantization represents selected numbers
+        using fewer bits, plus information needed to interpret them. It does not
+        remove layers or parameters.
+      </p>
+      <div class="cards">
+        <article class="card">
+          <h3>Store less</h3>
+          <p>
+            For 70 billion weights, 16-bit payloads occupy 140 GB; 4-bit
+            payloads occupy 35 GB. Scales, zero-points, unquantized tensors, and
+            alignment add to that. KV cache and runtime memory are separate.
+          </p>
+        </article>
+        <article class="card">
+          <h3>Move less</h3>
+          <p>
+            Small-batch dense decoding often streams much of the model each
+            step. Compressed weights reduce that traffic. Batching amortizes
+            weight reads, while long contexts increase attention and KV-cache
+            traffic.
+          </p>
+        </article>
+        <article class="card">
+          <h3>Execute differently</h3>
+          <p>
+            A dense matrix multiply retains its multiply-accumulate count. One
+            multiply plus one addition counts as two operations. Lower-precision
+            kernels may execute them faster; conversion and scaling add work.
+          </p>
+        </article>
+      </div>
+      <div class="callout">
+        <b>Read W4A16 as a recipe.</b> W means weights, A means activations.
+        W4A16 stores 4-bit weights and uses 16-bit activations; many kernels
+        unpack weights into a wider compute type. W8A8 lowers both operand
+        precisions. The accumulator can still be wider. KV precision is an
+        independent choice. <a href="#sources">[1]</a>
+      </div>
+      <div class="callout warn">
+        <b>Four times smaller is not automatically four times faster.</b>
+        Dequantization, kernel support, batch size, attention, and device
+        utilization all matter. MoE models have different active and total
+        parameter counts; the calculator below models dense decoders only.
+      </div>
+      <div class="quiz" data-answer="1">
+        <b>CHECK YOUR INTUITION</b>
+        <p>
+          A model switches from W16A16 to W4A16. What definitely changes for the
+          quantized weights?
+        </p>
+        <button data-choice="0">The parameter count drops 4×</button>
+        <button data-choice="1">The payload uses 4× fewer bits</button>
+        <p class="feedback" aria-live="polite">Choose an answer.</p>
+        <template
+          >The same weights are represented more compactly. Metadata reduces the
+          overall compression ratio; speed still depends on execution.</template
+        >
+      </div>
+    </section>
+
+    <!-- ============ PLAYGROUND ============ -->
+    <section id="playground" class="wrap">
+      <h2><span class="n">02</span>Watch numbers become codes</h2>
+      <p class="lead">
+        This lab quantizes 256 synthetic values drawn from a seeded Gaussian
+        sample—not real model weights. A scale sets the grid spacing. Each value
+        is rounded to an integer code and reconstructed. Smaller groups localize
+        an outlier’s effect but store more scales.
+      </p>
+      <div class="controls">
+        <div class="ctl">
+          <label for="pBits">Bits</label
+          ><select id="pBits">
+            <option>2</option>
+            <option>3</option>
+            <option selected>4</option>
+            <option>5</option>
+            <option>6</option>
+            <option>8</option>
+          </select>
+        </div>
+        <div class="ctl">
+          <label for="pMode">Scheme</label
+          ><select id="pMode">
+            <option value="sym">Symmetric, narrow range</option>
+            <option value="asym">Affine, integer zero-point</option>
+          </select>
+        </div>
+        <div class="ctl">
+          <label for="pGroup">Group size</label
+          ><select id="pGroup">
+            <option value="0">Per-tensor (256)</option>
+            <option value="128">128</option>
+            <option value="32">32</option>
+            <option value="16">16</option>
+          </select>
+        </div>
+        <div class="ctl">
+          <label for="pShift">Distribution</label
+          ><select id="pShift">
+            <option value="0">Centered at zero</option>
+            <option value="3">Shifted by +3</option>
+          </select>
+        </div>
+        <label class="check"
+          ><input type="checkbox" id="pOutlier" />Inject a 12σ outlier</label
+        >
+        <div class="ctl">
+          <label for="pClip"
+            >Retained range: <output id="clipValue">100%</output></label
+          ><input
+            type="range"
+            id="pClip"
+            min="20"
+            max="100"
+            step="5"
+            value="100"
+          />
+        </div>
+      </div>
+      <p class="experiment-prompt">
+        <b>Try this:</b> turn on the outlier, compare per-tensor and 16-value
+        groups, then reduce the retained range. Clipping sacrifices extreme
+        values to give the rest a finer grid.
+      </p>
+      <canvas
+        id="quantCanvas"
+        role="img"
+        aria-label="Original and reconstructed values by group"
+        aria-describedby="plotSummary"
+      ></canvas>
+      <p id="plotSummary" aria-live="polite"></p>
+      <div class="metrics" aria-live="polite">
+        <div class="metric">
+          <div class="k">RMSE · all 256 values</div>
+          <div class="v" id="mRmse"></div>
+        </div>
+        <div class="metric">
+          <div class="k">Maximum absolute error</div>
+          <div class="v" id="mMax"></div>
+        </div>
+        <div class="metric">
+          <div class="k">RMSE / original RMS</div>
+          <div class="v" id="mRel"></div>
+        </div>
+        <div class="metric">
+          <div class="k">Compression incl. metadata</div>
+          <div class="v" id="mComp"></div>
+        </div>
+      </div>
+      <div class="callout formula" id="pFormula"></div>
+      <div class="controls">
+        <div class="ctl">
+          <label for="pInspect">Inspect value index (0–255)</label
+          ><input id="pInspect" type="range" min="0" max="255" value="17" />
+        </div>
+        <output id="inspectValue" aria-live="polite"></output>
+      </div>
+      <div class="inspect-steps" id="pSteps" aria-live="polite"></div>
+      <p class="disc">
+        This lab budgets 16 bits for each scale and another 16 bits for each
+        affine zero-point. It simulates scale arithmetic in JavaScript
+        precision; it does not simulate FP16 scale rounding or packing overhead.
+        Symmetric narrow range uses 2ᵇ − 1 levels, leaving one signed code
+        unused. Floating formats such as FP8 and NF4 use different grids.
+      </p>
+      <div class="quiz" data-answer="0">
+        <b>CHECK YOUR INTUITION</b>
+        <p>Why might smaller groups increase the model’s stored size?</p>
+        <button data-choice="0">More scale metadata</button>
+        <button data-choice="1">More model parameters</button>
+        <p class="feedback" aria-live="polite">Choose an answer.</p>
+        <template
+          >Each group needs metadata. With 4-bit values and a 16-bit scale,
+          group size 16 costs 5 effective bits per weight; size 128 costs
+          4.125.</template
+        >
+      </div>
+    </section>
+
+    <!-- ============ METHODS ============ -->
+    <section id="methods" class="wrap">
+      <h2><span class="n">03</span>Separate the format from the method</h2>
+      <p class="lead">
+        INT4 and FP8 describe numbers. GPTQ and AWQ describe how weights are
+        transformed. PTQ and QAT describe when quantization is introduced. GGUF
+        describes a container. These categories overlap.
+      </p>
+      <article class="mcard">
+        <span class="badge">WEIGHT-ONLY · PTQ</span>
+        <h3>GPTQ</h3>
+        <p class="tag">Compensate for rounding error</p>
+        <p>
+          Use calibration activations to approximate sensitivity. Quantize
+          weights sequentially and compensate for their errors in the remaining
+          weights.
+        </p>
+        <p class="use">
+          Uses approximate second-order information rather than rounding every
+          weight independently. Calibration and kernel compatibility matter.
+          <a href="https://arxiv.org/abs/2210.17323">Original source ↗</a>
+        </p>
+      </article>
+      <article class="mcard">
+        <span class="badge">WEIGHT-ONLY · PTQ</span>
+        <h3>AWQ</h3>
+        <p class="tag">Protect important channels</p>
+        <p>
+          Use activation statistics to identify salient channels. Scale their
+          weights up and inversely scale the corresponding activations before
+          quantization, preserving the unquantized product.
+        </p>
+        <p class="use">
+          For a channel scale a: W′ = aW and x′ = x/a. This can reduce effective
+          rounding error on salient weights. It does not mean quantizing
+          activations.
+          <a href="https://arxiv.org/abs/2306.00978">Original source ↗</a>
+        </p>
+      </article>
+      <article class="mcard">
+        <span class="badge">FORMAT · ADAPTER TRAINING</span>
+        <h3>NF4 and QLoRA</h3>
+        <p class="tag">Use a nonuniform codebook</p>
+        <p>
+          NF4 allocates 16 levels to suit a normal distribution. QLoRA trains
+          adapters through a frozen quantized base, with higher-precision
+          computation. Double quantization compresses the scales themselves.
+        </p>
+        <p class="use">
+          QLoRA reports about 0.37 bits per parameter saved by double
+          quantization in its setup. Adapter training is distinct from training
+          all base weights with quantization awareness.
+          <a href="https://arxiv.org/abs/2305.14314">Original source ↗</a>
+        </p>
+      </article>
+      <article class="mcard">
+        <span class="badge">CONTAINER + TENSOR FORMATS</span>
+        <h3>GGUF and K-quants</h3>
+        <p class="tag">A file format can contain multiple precisions</p>
+        <p>
+          GGUF is a model container, not one quantization algorithm. Q4_K is a
+          tensor format with 256-weight super-blocks; Q4_K_M is a model
+          conversion recipe that can mix tensor types.
+        </p>
+        <p class="use">
+          Effective bits depend on the mixture and metadata. Do not interpret
+          “4” as exactly four stored bits per model parameter. Runtime backends
+          determine the actual arithmetic.
+          <a
+            href="https://github.com/ggml-org/llama.cpp/blob/master/ggml/src/ggml-common.h"
+            >Original source ↗</a
+          >
+        </p>
+      </article>
+      <article class="mcard">
+        <span class="badge">WEIGHTS + ACTIVATIONS · PTQ</span>
+        <h3>SmoothQuant</h3>
+        <p class="tag">Move difficulty from activations to weights</p>
+        <p>
+          Rescale activation channels down and weights up while preserving the
+          original product. This smooths activation outliers so both operands
+          can be quantized to INT8.
+        </p>
+        <p class="use">
+          Its target differs from AWQ: activation quantization is central here.
+          Native low-precision kernels are needed to realize a compute benefit.
+          <a href="https://arxiv.org/abs/2211.10438">Original source ↗</a>
+        </p>
+      </article>
+      <article class="mcard">
+        <span class="badge">NUMERICAL FORMATS</span>
+        <h3>FP8 and FP4</h3>
+        <p class="tag">Keep floating point, use fewer bits</p>
+        <p>
+          Floating formats have sign, exponent, and fraction fields. Their
+          levels are nonuniform. FP8 E4M3 and E5M2 have different
+          range/precision tradeoffs; scaled FP4 formats such as NVFP4 use block
+          scales.
+        </p>
+        <p class="use">
+          Finite range still causes clipping or overflow without suitable
+          scaling. FP8 weight payload is half that of FP16; KV quantization is
+          separate. FP4, NF4, and INT4 are not interchangeable.
+          <a
+            href="https://docs.nvidia.com/deeplearning/tensorrt/latest/inference-library/quantized-types-schemes.html"
+            >Original source ↗</a
+          >
+        </p>
+      </article>
+      <article class="mcard">
+        <span class="badge">CACHE · INDEPENDENT OF WEIGHTS</span>
+        <h3>KV-cache quantization</h3>
+        <p class="tag">Shrink the growing context state</p>
+        <p>
+          For full-attention GQA, cache payload = 2 × layers × KV heads × head
+          dimension × cached tokens × batch × bytes per element. Quantizing
+          weights does not automatically quantize this cache.
+        </p>
+        <p class="use">
+          KIVI uses per-channel key quantization and per-token value
+          quantization, with a higher-precision residual region. Metadata and
+          residuals reduce ideal memory savings.
+          <a href="https://arxiv.org/abs/2402.02750">Original source ↗</a>
+        </p>
+      </article>
+      <article class="mcard">
+        <span class="badge">VECTOR QUANTIZATION</span>
+        <h3>QuIP# and AQLM</h3>
+        <p class="tag">Quantize groups of weights jointly</p>
+        <p>
+          Randomized Hadamard transforms reduce concentration in individual
+          coordinates. Lattice codebooks then represent vectors of weights, with
+          fine-tuning used to recover quality.
+        </p>
+        <p class="use">
+          Vector methods differ from scalar rounding. Low-bit quality and
+          latency need evaluation with the actual checkpoint, kernels, and task.
+          <a href="https://arxiv.org/abs/2402.04396">Original source ↗</a>
+        </p>
+      </article>
+      <p class="use">
+        AQLM represents each weight vector as a sum of learned codewords and
+        optimizes the codebooks to preserve model behavior. It is another route
+        to vector quantization, rather than a variant of the scalar INT2 grid in
+        this playground.
+        <a href="https://arxiv.org/abs/2401.06118">AQLM paper ↗</a>
+      </p>
+      <article class="mcard">
+        <span class="badge">TRAINING PROCEDURE</span>
+        <h3>Quantization-aware training (QAT)</h3>
+        <p class="tag">Learn with simulated quantization</p>
+        <p>
+          Insert quantize/dequantize operations during training so parameters
+          adapt to rounding and clipping. A straight-through estimator
+          approximates gradients through the quantizer.
+        </p>
+        <p class="use">
+          QAT does not specify a bit width, activation format, or kernel. A
+          W4A16 QAT checkpoint can still use wider arithmetic at deployment.
+          <a
+            href="https://developer.nvidia.com/blog/achieving-fp32-accuracy-for-int8-inference-using-quantization-aware-training-with-tensorrt/"
+            >Original source ↗</a
+          >
+        </p>
+      </article>
+    </section>
+
+    <!-- ============ CALCULATOR ============ -->
+    <section id="calculator" class="wrap">
+      <h2>
+        <span class="n">04</span>Deployment calculator — memory, speed, and what
+        fits
+      </h2>
+      <p class="lead">
+        Pick an illustrative model profile, context, batch, storage recipe, and
+        device budget. The model is an idealized roofline estimate: decode is
+        limited by
+        <span class="mono">max(bytes/bandwidth, operations/rate)</span>. It is a
+        ceiling under stated assumptions, not a hardware benchmark. Compare
+        aggregate throughput with per-sequence token rate below.
+      </p>
+
+      <div class="controls">
+        <div class="ctl">
+          <label for="cModel">Model</label
+          ><select id="cModel"></select>
+        </div>
+        <div class="ctl">
+          <label for="cMethod">Method</label
+          ><select id="cMethod"></select>
+        </div>
+        <div class="ctl">
+          <label for="cKv">KV cache</label
+          ><select id="cKv">
+            <option value="2">FP16/BF16 (2 B)</option>
+            <option value="1">FP8 (1 B)</option>
+            <option value="0.5">INT4 (0.5 B)</option>
+          </select>
+        </div>
+        <div class="ctl">
+          <label for="cCtx">Context (tokens)</label
+          ><select id="cCtx">
+            <option>1024</option>
+            <option>4096</option>
+            <option selected>8192</option>
+            <option>16384</option>
+            <option>32768</option>
+            <option>65536</option>
+            <option>131072</option>
+          </select>
+        </div>
+        <div class="ctl">
+          <label for="cBatch">Batch</label
+          ><select id="cBatch">
+            <option selected>1</option>
+            <option>2</option>
+            <option>4</option>
+            <option>8</option>
+            <option>16</option>
+            <option>32</option>
+            <option>64</option>
+            <option>128</option>
+          </select>
+        </div>
+        <div class="ctl">
+          <label for="cGpu">Hardware</label
+          ><select id="cGpu"></select>
+        </div>
+        <div class="ctl">
+          <label for="cCount">Ideal tensor-parallel devices</label
+          ><select id="cCount">
+            <option selected>1</option>
+            <option>2</option>
+            <option>4</option>
+            <option>8</option>
+          </select>
+        </div>
+      </div>
+
+      <label class="check"
+        ><input id="cNative" type="checkbox" />Assume a compatible native W8A8
+        kernel (2× arithmetic rate)</label
+      >
+      <div id="fitBox" class="fit" aria-live="polite"></div>
+
+      <div class="calcgrid">
+        <div class="panel">
+          <h3>Selected configuration</h3>
+          <div class="bigs">
+            <div class="metric">
+              <div class="k">Weights</div>
+              <div class="v" id="oW">–</div>
+            </div>
+            <div class="metric">
+              <div class="k">KV cache</div>
+              <div class="v" id="oK">–</div>
+            </div>
+            <div class="metric">
+              <div class="k">Estimated memory</div>
+              <div class="v" id="oT">–</div>
+            </div>
+            <div class="metric">
+              <div class="k">Aggregate roofline ceiling</div>
+              <div class="v" id="oS">–</div>
+            </div>
+            <div class="metric">
+              <div class="k">Per-sequence ceiling</div>
+              <div class="v" id="oSeq"></div>
+            </div>
+            <div class="metric">
+              <div class="k">Bottleneck</div>
+              <div class="v" id="oB">–</div>
+            </div>
+            <div class="metric">
+              <div class="k">Arithmetic ops / output token</div>
+              <div class="v" id="oF">–</div>
+            </div>
+          </div>
+          <div class="membar">
+            <div class="w" id="barW"></div>
+            <div class="k" id="barK"></div>
+          </div>
+          <div class="legend">
+            <span
+              ><span class="dot" style="background: #2f7f8f"></span
+              >weights</span
+            >
+            <span
+              ><span class="dot" style="background: #7a5aa0"></span>KV
+              cache</span
+            >
+          </div>
+          <p class="tipbox" id="tipBox"></p>
+        </div>
+        <div class="panel">
+          <h3>
+            Storage recipes under this device budget
+            <span style="text-transform: none; color: var(--faint)"
+              >(select a method button)</span
+            >
+          </h3>
+          <p class="disc">
+            On narrow screens, scroll the table horizontally to compare columns.
+          </p>
+          <div
+            style="overflow-x: auto"
+            tabindex="0"
+            role="region"
+            aria-label="Storage recipe comparison"
+          >
+            <table id="cTable"></table>
+          </div>
+        </div>
+      </div>
+      <details open>
+        <summary>Inspect the assumptions and equations</summary>
+        <p id="hardwareAssumptions"></p>
+        <div class="formula" id="rooflineMath"></div>
+        <p>
+          One decode step emits one token per sequence. Batch B shares a weight
+          read, but each sequence has its own KV cache. Devices are assumed to
+          shard weights and KV perfectly; interconnect and collective costs are
+          excluded. The 8% headroom and 0.75 GB runtime allowance per device are
+          placeholders, not measured usage. Model profiles are hypothetical
+          dense GQA/MHA shapes, not checkpoint configurations.
+        </p>
+        <p>
+          The estimate excludes prefill, allocator fragmentation, kernel
+          efficiency, KV scale metadata, cache writes, and activation workspaces
+          beyond that allowance. “Fits” is an ideal memory budget test, not
+          confirmation that a runtime supports this format or parallel layout.
+          All capacities use decimal GB (10⁹ bytes), not GiB.
+        </p>
+      </details>
+    </section>
+
+    <!-- ============ TRADEOFFS ============ -->
+    <section id="tradeoffs" class="wrap">
+      <h2><span class="n">05</span>Compare memory, then measure quality</h2>
+      <p class="lead">
+        These bars use the calculator’s weights, KV payload, and runtime
+        allowance. Every bar shares the same linear scale. The line marks 92% of
+        the combined device capacity; the remainder is reserved as headroom.
+      </p>
+      <div id="memoryCompare" aria-label="Memory comparison"></div>
+      <div class="callout warn">
+        <b>There is no universal “accuracy retained” percentage.</b> Weight RMSE
+        is not task accuracy, and perplexity is not a code or reasoning
+        benchmark. This page computes numerical error in the toy sample; it does
+        not infer model quality from bit width.
+      </div>
+      <div class="cards">
+        <article class="card">
+          <h3>Keep the comparison controlled</h3>
+          <p>
+            Use the same base model, evaluation prompts, tokenizer, decoding
+            settings, and context lengths. Keep quantization calibration data
+            separate from held-out evaluation.
+          </p>
+        </article>
+        <article class="card">
+          <h3>Measure the actual task</h3>
+          <p>
+            Report perplexity alongside relevant task scores: code tests,
+            exact-match answers, retrieval at long context, or a fixed human
+            review rubric. Include uncertainty and failure examples.
+          </p>
+        </article>
+        <article class="card">
+          <h3>Measure the actual system</h3>
+          <p>
+            Record peak memory, time to first token, inter-token latency, and
+            aggregate throughput at your intended concurrency. State the
+            checkpoint format, runtime, kernel, and hardware.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ============ GUIDE ============ -->
+    <section id="guide" class="wrap">
+      <h2><span class="n">06</span>Choose the next experiment</h2>
+      <div class="guidegrid">
+        <article class="gcard">
+          <h3>Weights dominate memory</h3>
+          <p>
+            Compare a supported 4-bit weight recipe with the 16-bit baseline.
+            Check measured latency and held-out task quality; compression alone
+            does not predict either.
+          </p>
+        </article>
+        <article class="gcard">
+          <h3>KV cache dominates</h3>
+          <p>
+            Hold weight precision fixed, then compare 16-bit and 8-bit KV
+            payloads in the calculator. Test long-context quality and
+            cache-format support before lowering precision further.
+          </p>
+        </article>
+        <article class="gcard">
+          <h3>Compute is the modeled limit</h3>
+          <p>
+            Compare W8A8 with weight-only formats, enabling the native-kernel
+            assumption only as a what-if scenario. Verify actual kernel coverage
+            and timings on the target device.
+          </p>
+        </article>
+        <article class="gcard">
+          <h3>You need adaptation</h3>
+          <p>
+            QLoRA reduces memory for adapter fine-tuning; QAT adapts weights to
+            a target quantization recipe. Choose based on what you intend to
+            train and deploy, not a generic quality ranking.
+          </p>
+        </article>
+      </div>
+      <div class="quiz" data-answer="1">
+        <b>CHECK YOUR INTUITION</b>
+        <p>
+          You halve only the KV precision. Does the total model memory halve?
+        </p>
+        <button data-choice="0">Always</button>
+        <button data-choice="1">Only the ideal KV payload halves</button>
+        <p class="feedback" aria-live="polite">Choose an answer.</p>
+        <template
+          >Weights and runtime overhead remain. Cache metadata and residual
+          high-precision regions may also remain.</template
+        >
+      </div>
+    </section>
+
+    <footer class="wrap" id="sources">
+      <h2>Sources and scope</h2>
+      <p>
+        Reviewed September 13, 2026. This is a self-contained teaching
+        simulation. Device budgets, effective bits, and model shapes are
+        explicit assumptions; there are no measured performance or quality
+        scores.
+      </p>
+      <ol>
+        <li>
+          <a
+            href="https://docs.nvidia.com/deeplearning/tensorrt/latest/inference-library/quantized-types-schemes.html"
+            >NVIDIA: quantized formats, scaling, and arithmetic</a
+          >
+        </li>
+        <li>
+          <a href="https://arxiv.org/abs/2306.00978">AWQ</a> ·
+          <a href="https://arxiv.org/abs/2210.17323">GPTQ</a> ·
+          <a href="https://arxiv.org/abs/2211.10438">SmoothQuant</a>
+        </li>
+        <li>
+          <a href="https://arxiv.org/abs/2305.14314"
+            >QLoRA / NF4 and double quantization</a
+          >
+          ·
+          <a href="https://arxiv.org/abs/2402.02750">KIVI cache quantization</a>
+        </li>
+        <li>
+          <a
+            href="https://github.com/ggml-org/llama.cpp/blob/master/ggml/src/ggml-common.h"
+            >GGML block format definitions</a
+          >
+          · <a href="https://arxiv.org/abs/2402.04396">QuIP#</a>
+        </li>
+      </ol>
+      <a href="./index.html">← LLM Explainers</a>
+    </footer>
+
+    <script>
+      const $ = (s) => document.querySelector(s);
+      const MODELS = [
+        {
+          id: "m3b",
+          name: "3B · 28 layers · 8 KV heads",
+          p: 3e9,
+          L: 28,
+          kvh: 8,
+          qh: 32,
+          hd: 128,
+        },
+        {
+          id: "m8b",
+          name: "8B · 32 layers · 8 KV heads",
+          p: 8e9,
+          L: 32,
+          kvh: 8,
+          qh: 32,
+          hd: 128,
+        },
+        {
+          id: "m32b",
+          name: "32B · 64 layers · 8 KV heads",
+          p: 32e9,
+          L: 64,
+          kvh: 8,
+          qh: 64,
+          hd: 128,
+        },
+        {
+          id: "m70b",
+          name: "70B · 80 layers · 8 KV heads",
+          p: 70e9,
+          L: 80,
+          kvh: 8,
+          qh: 64,
+          hd: 128,
+        },
+        {
+          id: "m123b",
+          name: "123B · 96 layers · 96 KV heads",
+          p: 123e9,
+          L: 96,
+          kvh: 96,
+          qh: 96,
+          hd: 128,
+        },
+      ];
+      // Explicit teaching budgets, not specifications of commercial hardware.
+      const GPUS = [
+        {
+          id: "small",
+          name: "24 GB · 1 TB/s · 100 TOP/s",
+          mem: 24e9,
+          bw: 1e12,
+          fp16: 100e12,
+        },
+        {
+          id: "large",
+          name: "80 GB · 3 TB/s · 500 TOP/s",
+          mem: 80e9,
+          bw: 3e12,
+          fp16: 500e12,
+        },
+        {
+          id: "host",
+          name: "128 GB · 0.1 TB/s · 2 TOP/s",
+          mem: 128e9,
+          bw: 1e11,
+          fp16: 2e12,
+        },
+      ];
+      const METHODS = [
+        { id: "fp16", name: "16-bit baseline", eff: 16, native: false },
+        { id: "fp8", name: "FP8 W8A8", eff: 8.125, native: true },
+        { id: "smooth", name: "INT8 W8A8", eff: 8.125, native: true },
+        { id: "int8wo", name: "INT8 W8A16", eff: 8.125, native: false },
+        {
+          id: "awq",
+          name: "INT4 W4A16 · group 128",
+          eff: 4.125,
+          native: false,
+        },
+        {
+          id: "affine4",
+          name: "Affine INT4 · group 128",
+          eff: 4.25,
+          native: false,
+        },
+        { id: "group16", name: "INT4 W4A16 · group 16", eff: 5, native: false },
+        {
+          id: "int2",
+          name: "INT2 W2A16 · group 128",
+          eff: 2.125,
+          native: false,
+        },
+      ];
+      const OVH = 0.75e9;
+      const fmtG = (b) => (b / 1e9).toFixed(2) + " GB";
+      const fmtT = (t) =>
+        t.toLocaleString(undefined, { maximumFractionDigits: 0 });
+      function cfg() {
+        return {
+          m: MODELS.find((x) => x.id === $("#cModel").value),
+          meth: METHODS.find((x) => x.id === $("#cMethod").value),
+          ctx: +$("#cCtx").value,
+          batch: +$("#cBatch").value,
+          g: GPUS.find((x) => x.id === $("#cGpu").value),
+          n: +$("#cCount").value,
+          kb: +$("#cKv").value,
+          native: $("#cNative").checked,
+        };
+      }
+      function est(c, meth) {
+        const weights = (c.m.p * meth.eff) / 8;
+        const kvElements = 2 * c.m.L * c.m.kvh * c.m.hd;
+        const kv = kvElements * c.kb * c.ctx * c.batch;
+        const overhead = OVH * c.n,
+          total = weights + kv + overhead;
+        // Per emitted token across the entire batch. Do not multiply by B or N again.
+        const bytesTok = weights / c.batch + kv / c.batch;
+        const ops = 2 * c.m.p + 4 * c.m.L * c.m.qh * c.m.hd * c.ctx;
+        const peak = c.g.fp16 * (c.native && meth.native ? 2 : 1);
+        const tMem = bytesTok / (c.g.bw * c.n),
+          tCmp = ops / (peak * c.n);
+        const time = Math.max(tMem, tCmp),
+          toks = 1 / time;
+        return {
+          weights,
+          kv,
+          overhead,
+          total,
+          bytesTok,
+          ops,
+          tMem,
+          tCmp,
+          toks,
+          seq: toks / c.batch,
+          step: c.batch * time,
+          fit: total <= c.g.mem * c.n * 0.92,
+          bound: tMem >= tCmp ? "Memory traffic" : "Arithmetic",
+        };
+      }
+      function mulberry32(a) {
+        return function () {
+          a |= 0;
+          a = (a + 0x6d2b79f5) | 0;
+          let t = Math.imul(a ^ (a >>> 15), 1 | a);
+          t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+      const random = mulberry32(1042),
+        W = Array.from(
+          { length: 256 },
+          () =>
+            Math.sqrt(-2 * Math.log(Math.max(random(), 1e-9))) *
+            Math.cos(2 * Math.PI * random()),
+        );
+      function quantGroup(arr, bits, mode, retain = 1) {
+        let lo = Math.min(0, ...arr) * retain,
+          hi = Math.max(0, ...arr) * retain;
+        let qmin, qmax, scale, z;
+        if (mode === "sym") {
+          qmax = 2 ** (bits - 1) - 1;
+          qmin = -qmax;
+          scale = Math.max(-lo, hi) / qmax || 1;
+          z = 0;
+        } else {
+          qmin = 0;
+          qmax = 2 ** bits - 1;
+          scale = (hi - lo) / qmax || 1;
+          z = Math.max(qmin, Math.min(qmax, Math.round(-lo / scale)));
+        }
+        const codes = arr.map((x) =>
+          Math.max(qmin, Math.min(qmax, Math.round(x / scale) + z)),
+        );
+        return {
+          scale,
+          z,
+          qmin,
+          qmax,
+          codes,
+          values: codes.map((q) => (q - z) * scale),
+        };
+      }
+      let playground;
+      function drawPlayground() {
+        const bits = +$("#pBits").value,
+          mode = $("#pMode").value,
+          group = +$("#pGroup").value || 256,
+          shift = +$("#pShift").value,
+          retain = +$("#pClip").value / 100;
+        const data = W.map((v) => v + shift);
+        if ($("#pOutlier").checked) data[17] = 12 + shift;
+        const groups = [];
+        for (let i = 0; i < 256; i += group) {
+          const raw = data.slice(i, i + group);
+          groups.push({ raw, ...quantGroup(raw, bits, mode, retain) });
+        }
+        const values = groups.flatMap((g) => g.values),
+          err = data.map((v, i) => v - values[i]);
+        const rmse = Math.sqrt(err.reduce((s, e) => s + e * e, 0) / 256),
+          rms = Math.sqrt(data.reduce((s, v) => s + v * v, 0) / 256);
+        const effective = bits + (mode === "sym" ? 16 : 32) / group;
+        playground = { data, values, groups, group, rmse, effective };
+        $("#clipValue").textContent = retain * 100 + "%";
+        $("#mRmse").textContent = rmse.toFixed(4);
+        $("#mMax").textContent = Math.max(...err.map(Math.abs)).toFixed(4);
+        $("#mRel").textContent = ((100 * rmse) / rms).toFixed(2) + "%";
+        $("#mComp").textContent =
+          (16 / effective).toFixed(2) + "× · " + effective.toFixed(3) + " bits";
+        $("#pFormula").textContent =
+          `q = clamp(round(x / s) + z, qmin, qmax); reconstructed x = (q − z) × s. ${mode === "sym" ? `Symmetric: ${2 ** bits - 1} levels, z = 0; one signed code is unused.` : `Affine: ${2 ** bits} levels; an integer zero-point represents zero exactly.`} Scales and zero-points are computed separately for each group.`;
+        const show = groups.slice(0, 4),
+          canvas = $("#quantCanvas"),
+          ctx = canvas.getContext("2d"),
+          dpr = devicePixelRatio || 1,
+          width = canvas.clientWidth,
+          height = show.length * 96 + 65;
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+        canvas.style.height = height + "px";
+        ctx.scale(dpr, dpr);
+        const levels = show.flatMap((g) =>
+          [g.qmin - g.z, g.qmax - g.z].map((q) => q * g.scale),
+        );
+        const lo = Math.min(...data, ...values, ...levels),
+          hi = Math.max(...data, ...values, ...levels),
+          pad = 35,
+          X = (v) => pad + ((v - lo) / (hi - lo || 1)) * (width - 2 * pad);
+        ctx.font = "12px ui-monospace,monospace";
+        show.forEach((g, gi) => {
+          const y = 44 + gi * 96;
+          ctx.fillStyle = "#9bafc4";
+          ctx.fillText(`Group ${gi + 1} · s=${g.scale.toFixed(3)}`, 12, y - 23);
+          ctx.strokeStyle = "#31465f";
+          ctx.beginPath();
+          ctx.moveTo(pad, y + 18);
+          ctx.lineTo(width - pad, y + 18);
+          ctx.stroke();
+          if (bits <= 5)
+            for (let q = g.qmin; q <= g.qmax; q++) {
+              const x = X((q - g.z) * g.scale);
+              ctx.beginPath();
+              ctx.moveTo(x, y + 32);
+              ctx.lineTo(x, y + 43);
+              ctx.stroke();
+            }
+          g.raw.forEach((v, i) => {
+            const x = X(v),
+              qx = X(g.values[i]);
+            ctx.strokeStyle = "#638fa8";
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(qx, y + 35);
+            ctx.stroke();
+            ctx.fillStyle = "#d7e2ee";
+            ctx.beginPath();
+            ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "#39c5d8";
+            ctx.fillRect(qx - 2.5, y + 32.5, 5, 5);
+          });
+        });
+        ctx.fillStyle = "#9bafc4";
+        const axisY = height - 25;
+        ctx.textAlign = "left";
+        ctx.fillText(lo.toFixed(1), pad, axisY);
+        ctx.textAlign = "right";
+        ctx.fillText(hi.toFixed(1), width - pad, axisY);
+        ctx.textAlign = "center";
+        ctx.fillText("Value (unitless)", width / 2, height - 7);
+        ctx.textAlign = "left";
+        $("#plotSummary").textContent =
+          `White circles: originals. Blue squares: reconstructions. Lines show movement. Showing ${show.length} of ${groups.length} groups; all 256 values contribute to the error metrics. ${err.filter((e) => Math.abs(e) > 0).length} values changed.`;
+        inspect();
+      }
+      function inspect() {
+        const i = +$("#pInspect").value,
+          { data, groups, group } = playground,
+          g = groups[Math.floor(i / group)],
+          q = g.codes[i % group],
+          raw = Math.round(data[i] / g.scale) + g.z;
+        $("#inspectValue").textContent =
+          `Index ${i} · group ${Math.floor(i / group) + 1}`;
+        $("#pSteps").innerHTML = [
+          ["1 · Original", data[i].toFixed(4)],
+          ["2 · Scale / zero-point", g.scale.toFixed(4) + " / " + g.z],
+          ["3 · Round → clamp", raw + " → " + q],
+          ["4 · Reconstruct", g.values[i % group].toFixed(4)],
+        ]
+          .map(
+            ([label, value]) => `<div>${label}<strong>${value}</strong></div>`,
+          )
+          .join("");
+      }
+      function renderCalc() {
+        const c = cfg(),
+          e = est(c, c.meth),
+          capacity = c.g.mem * c.n * 0.92;
+        $("#fitBox").className = "fit " + (e.fit ? "ok" : "no");
+        $("#fitBox").textContent =
+          `${e.fit ? "Within ideal budget" : "Exceeds ideal budget"} · ${fmtG(e.total)} needed / ${fmtG(capacity)} usable (${fmtG(c.g.mem * c.n)} installed, 8% reserved)`;
+        $("#oW").textContent = fmtG(e.weights);
+        $("#oK").textContent = fmtG(e.kv);
+        $("#oT").textContent = fmtG(e.total);
+        $("#oS").textContent = e.fit
+          ? fmtT(e.toks) + " tok/s"
+          : "— exceeds budget";
+        $("#oSeq").textContent = e.fit ? fmtT(e.seq) + " tok/s" : "—";
+        $("#oB").textContent = e.bound;
+        $("#oF").textContent = (e.ops / 1e9).toFixed(1) + " Gop";
+        $("#barW").style.width = (e.weights / e.total) * 100 + "%";
+        $("#barK").style.width = (e.kv / e.total) * 100 + "%";
+        $("#tipBox").textContent =
+          `Weights ${fmtG(e.weights)} + KV ${fmtG(e.kv)} + runtime ${fmtG(e.overhead)}. The unfilled part of the bar is runtime. KV precision is independent of weight precision. ${e.fit ? "Ideal step latency: " + (e.step * 1000).toFixed(2) + " ms; one step emits " + c.batch + " tokens across " + c.batch + " sequences." : "Throughput is withheld because this configuration exceeds the ideal budget; offload is not modeled."}`;
+        $("#hardwareAssumptions").textContent =
+          `Profile: ${c.m.qh} query heads, ${c.m.kvh} KV heads, head dimension ${c.m.hd}. Per device: ${fmtG(c.g.mem)}, ${(c.g.bw / 1e12).toFixed(1)} TB/s bandwidth, ${c.g.fp16 / 1e12} trillion arithmetic operations/s baseline. ${c.native ? "W8A8 rows assume a compatible kernel at 2× this rate." : "All rows use the baseline arithmetic rate; native W8A8 acceleration is not assumed."} Effective bit counts include assumed group metadata; they are not measured checkpoint sizes.`;
+        $("#rooflineMath").textContent =
+          `KV = 2 × ${c.m.L} × ${c.m.kvh} × ${c.m.hd} × ${c.ctx} × ${c.batch} × ${c.kb} bytes = ${fmtG(e.kv)}. Traffic/output token = weights/B + KV/B = ${fmtG(e.bytesTok)}. Arithmetic/output token ≈ 2P + 4L·query_heads·head_dim·context = ${(e.ops / 1e9).toFixed(1)} Gop. Aggregate tok/s = 1 / max(traffic/(bandwidth·devices), ops/(rate·devices)). Per-sequence rate = aggregate/B.`;
+        $("#cTable").innerHTML =
+          '<thead><tr><th scope="col">Storage recipe</th><th scope="col">Effective bits</th><th scope="col">Weights</th><th scope="col">Total</th><th scope="col">Budget</th><th scope="col">Ceiling tok/s</th></tr></thead><tbody>' +
+          METHODS.map((m) => {
+            const r = est(c, m);
+            return `<tr class="${m.id === c.meth.id ? "sel" : ""}"><td><button data-method="${m.id}" aria-pressed="${m.id === c.meth.id}">${m.name}</button></td><td>${m.eff}</td><td>${fmtG(r.weights)}</td><td>${fmtG(r.total)}</td><td>${r.fit ? "Within" : "Exceeds"}</td><td>${r.fit ? fmtT(r.toks) : "—"}</td></tr>`;
+          }).join("") +
+          "</tbody>";
+        const rows = METHODS.map((m) => ({ m, e: est(c, m) })),
+          max = Math.max(capacity, ...rows.map((r) => r.e.total)) * 1.05;
+        $("#memoryCompare").innerHTML =
+          "<p>Blue = weights · purple = KV · gray = runtime · dashed amber = usable capacity</p>" +
+          rows
+            .map(
+              ({ m, e: r }) =>
+                `<div class="memory-row"><button data-method="${m.id}" aria-pressed="${m.id === c.meth.id}">${m.name}</button><div class="memory-track" role="img" aria-label="${m.name}: weights ${fmtG(r.weights)}, KV ${fmtG(r.kv)}, runtime ${fmtG(r.overhead)}"><span style="width:${(100 * r.weights) / max}%;background:#39c5d8"></span><span style="width:${(100 * r.kv) / max}%;background:#a785cf"></span><span style="width:${(100 * r.overhead) / max}%;background:#8fa3b8"></span><i class="capacity" style="left:${(100 * capacity) / max}%"></i></div><output>${fmtG(r.total)}</output></div>`,
+            )
+            .join("");
+      }
+      function fill(sel, arr, id) {
+        sel.innerHTML = arr
+          .map(
+            (x) =>
+              `<option value="${x.id}" ${x.id === id ? "selected" : ""}>${x.name}</option>`,
+          )
+          .join("");
+      }
+      fill($("#cModel"), MODELS, "m8b");
+      fill($("#cMethod"), METHODS, "awq");
+      fill($("#cGpu"), GPUS, "small");
+      for (const id of [
+        "cModel",
+        "cMethod",
+        "cKv",
+        "cCtx",
+        "cBatch",
+        "cGpu",
+        "cCount",
+        "cNative",
+      ])
+        $("#" + id).addEventListener("change", renderCalc);
+      for (const id of [
+        "pBits",
+        "pMode",
+        "pGroup",
+        "pShift",
+        "pOutlier",
+        "pClip",
+      ])
+        $("#" + id).addEventListener("input", drawPlayground);
+      $("#pInspect").addEventListener("input", inspect);
+      document.addEventListener("click", (event) => {
+        const button = event.target.closest("button[data-method]");
+        if (button) {
+          $("#cMethod").value = button.dataset.method;
+          renderCalc();
+        }
+      });
+      document.querySelectorAll(".quiz").forEach((quiz) => {
+        quiz.querySelectorAll("button").forEach((button) =>
+          button.addEventListener("click", () => {
+            quiz
+              .querySelectorAll("button")
+              .forEach((b) =>
+                b.setAttribute("aria-pressed", String(b === button)),
+              );
+            quiz.querySelector(".feedback").textContent =
+              (button.dataset.choice === quiz.dataset.answer
+                ? "Correct. "
+                : "Not quite. ") +
+              quiz.querySelector("template").content.textContent;
+          }),
+        );
+      });
+      window.addEventListener("resize", drawPlayground);
+      drawPlayground();
+      renderCalc();
+    </script>
+  </body>
+</html>
