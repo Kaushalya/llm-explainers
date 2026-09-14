@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import "./diffusion.css";
 import SiteHeader from "./SiteHeader";
 
@@ -35,15 +36,90 @@ const sources = [
 ];
 const sentence = "The small robot learned to fold paper cranes".split(" ");
 const order = [0, 5, 2, 6, 1, 7, 3, 4];
-const Ref = ({ n }: { n: number }) => (
-  <a
-    className="dl-ref"
-    href={sources[n][1]}
-    aria-label={`Source: ${sources[n][0]}`}
-  >
-    [{n + 1}]
-  </a>
-);
+function Ref({ n }: { n: number }) {
+  const id = useId();
+  const trigger = useRef<HTMLButtonElement>(null);
+  const popup = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    const position = () => {
+      if (!trigger.current || !popup.current) return;
+      const anchor = trigger.current.getBoundingClientRect();
+      if (
+        !trigger.current.getClientRects().length ||
+        anchor.bottom < 0 ||
+        anchor.top > innerHeight
+      ) {
+        popup.current.hidePopover();
+        return;
+      }
+      const box = popup.current.getBoundingClientRect();
+      popup.current.style.left = `${Math.max(12, Math.min(anchor.left, innerWidth - box.width - 12))}px`;
+      const top =
+        anchor.bottom + 8 + box.height <= innerHeight - 12
+          ? anchor.bottom + 8
+          : anchor.top - box.height - 8;
+      popup.current.style.top = `${Math.max(12, top)}px`;
+    };
+    position();
+    const observer = new ResizeObserver(position);
+    observer.observe(document.body);
+    observer.observe(popup.current!);
+    window.addEventListener("scroll", position, true);
+    window.addEventListener("resize", position);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", position, true);
+      window.removeEventListener("resize", position);
+    };
+  }, [open]);
+
+  return (
+    <>
+      <button
+        ref={trigger}
+        type="button"
+        className="dl-ref"
+        popoverTarget={id}
+        aria-expanded={open}
+        aria-controls={id}
+        aria-haspopup="dialog"
+        aria-label={`Source: ${sources[n][0]}`}
+      >
+        [{n + 1}]
+      </button>
+      {createPortal(
+        <div
+          ref={popup}
+          id={id}
+          popover="auto"
+          role="dialog"
+          aria-labelledby={`${id}-title`}
+          className="dl-citation"
+          onToggle={(event) => setOpen(event.newState === "open")}
+        >
+          <button
+            type="button"
+            className="dl-citation-close"
+            aria-label="Close citation"
+            popoverTarget={id}
+            popoverTargetAction="hide"
+          >
+            ×
+          </button>
+          <span className="dl-citation-label">SOURCE [{n + 1}]</span>
+          <h3 id={`${id}-title`}>{sources[n][0]}</h3>
+          <a href={sources[n][1]} target="_blank" rel="noopener noreferrer">
+            {sources[n][1]}
+          </a>
+        </div>,
+        document.body,
+      )}
+    </>
+  );
+}
 function Strip({ words, active = [] }: { words: string[]; active?: number[] }) {
   return (
     <div className="dl-tokens">

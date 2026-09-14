@@ -533,3 +533,84 @@ body.diffusion-page:after {
     scroll-behavior: auto;
   }
 }
+
+.dl-page button.dl-ref {
+  display: inline;
+  min-height: 0;
+  padding: 0 2px;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  color: var(--dl-green);
+  font: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  vertical-align: baseline;
+}
+.dl-page button.dl-ref:hover,
+.dl-page button.dl-ref[aria-expanded="true"] {
+  background: #69efb026;
+}
+.dl-page button.dl-ref:focus-visible {
+  outline: 2px solid var(--dl-green);
+  outline-offset: 3px;
+}
+.dl-citation {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  box-sizing: border-box;
+  width: min(340px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+  padding: 18px 20px;
+  border: 1px solid #476554;
+  border-radius: 10px;
+  background: #102219;
+  color: #edf5ef;
+  box-shadow: 0 12px 36px #0006;
+  font:
+    15px/1.5 system-ui,
+    sans-serif;
+}
+.dl-citation-label {
+  color: #a2b5aa;
+  font:
+    11px ui-monospace,
+    monospace;
+}
+.dl-citation h3 {
+  margin: 10px 20px 14px 0;
+  color: #edf5ef;
+  font:
+    600 17px/1.45 system-ui,
+    sans-serif;
+}
+.dl-citation a {
+  overflow-wrap: anywhere;
+  color: #69efb0;
+  text-underline-offset: 4px;
+}
+.dl-citation-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #b7c9be;
+  font:
+    22px/1 system-ui,
+    sans-serif;
+  cursor: pointer;
+}
+.dl-citation-close:hover {
+  background: #203f2e;
+}
+.dl-citation :focus-visible {
+  outline: 2px solid #69efb0;
+  outline-offset: 3px;
+}

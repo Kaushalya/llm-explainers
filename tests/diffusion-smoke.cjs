@@ -17,6 +17,57 @@ const assert = require("node:assert/strict");
     await page
       .getByRole("heading", { name: "Append a token. Or refine a canvas." })
       .waitFor();
+    for (const width of [872, 390]) {
+      await page.setViewportSize({ width, height: 768 });
+      const citation = page
+        .locator("#dl-training > p")
+        .nth(1)
+        .locator(".dl-ref")
+        .first();
+      await citation.click();
+      const popup = page.locator(".dl-citation:popover-open");
+      await popup.waitFor();
+      assert.match(await popup.innerText(), /LLaDA/);
+      assert.equal(
+        await popup.getByRole("link").getAttribute("href"),
+        "https://arxiv.org/abs/2502.09992",
+      );
+      assert.equal(
+        await popup.getByRole("link").getAttribute("target"),
+        "_blank",
+      );
+      await page.waitForFunction(() => {
+        const popup = document.querySelector(".dl-citation:popover-open");
+        const anchor = document.querySelector('.dl-ref[aria-expanded="true"]');
+        if (!popup || !anchor) return false;
+        const p = popup.getBoundingClientRect(),
+          a = anchor.getBoundingClientRect();
+        return (
+          p.x >= 0 &&
+          p.right <= innerWidth &&
+          p.y >= 0 &&
+          p.bottom <= innerHeight &&
+          (Math.abs(p.top - a.bottom - 8) < 2 ||
+            Math.abs(a.top - p.bottom - 8) < 2)
+        );
+      });
+      await page.screenshot({ path: `/tmp/citation-${width}.png` });
+      await page.keyboard.press("Escape");
+      await popup.waitFor({ state: "hidden" });
+      await citation.focus();
+      await page.keyboard.press("Enter");
+      await popup.waitFor();
+      await popup.getByRole("button", { name: "Close citation" }).click();
+      await popup.waitFor({ state: "hidden" });
+      await citation.click();
+      await popup.waitFor();
+      await page
+        .locator("#dl-training > p")
+        .nth(1)
+        .click({ position: { x: 10, y: 10 } });
+      await popup.waitFor({ state: "hidden" });
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
     const basics = page.locator("#dl-basics");
     for (let i = 0; i < 4; i++)
       await basics.getByRole("button", { name: "Next model call" }).click();
