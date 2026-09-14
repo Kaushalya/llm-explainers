@@ -287,34 +287,12 @@ body.home-page::after {
   background: #09140f;
 }
 
-.card-diagram::before,
-.card-diagram::after {
-  content: "";
-  position: absolute;
-  background: #274438;
-}
-
-.card-diagram::before {
-  width: 46%;
-  height: 1px;
-}
-.card-diagram::after {
-  width: 1px;
-  height: 80%;
-}
-
-.card-diagram i {
+.explainer-logo {
+  position: relative;
   z-index: 1;
-  width: 23px;
-  aspect-ratio: 1;
-  border: 1px solid var(--card-accent);
-  border-radius: 50%;
-  background: #0a1712;
-}
-
-.card-diagram i:nth-child(2) {
-  width: 46px;
-  box-shadow: 0 0 34px color-mix(in srgb, var(--card-accent) 22%, transparent);
+  width: min(240px, 85%);
+  height: 112px;
+  color: var(--card-accent);
 }
 
 .card-diagram b {

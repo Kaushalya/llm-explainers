@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import SiteHeader from "./SiteHeader";
+import ExplainerLogo from "./ExplainerLogo";
 import { explainers } from "./explainers";
 import "./home.css";
 
@@ -73,9 +74,7 @@ export default function HomePage() {
                 <span>↗</span>
               </div>
               <div className="card-diagram" aria-hidden="true">
-                <i />
-                <i />
-                <i />
+                <ExplainerLogo id={item.id} />
                 <b>{item.index}</b>
               </div>
               <h3>
