@@ -32,7 +32,8 @@ a standalone HTML page, add the document to Vite's multi-page inputs.
 ## Text comments
 
 Select text inside an explainer section or panel and choose **Add comment**.
-The **Comments** button opens saved notes; each note can be edited or deleted,
+Saved passages show an underline and a comment-count badge above the text.
+Click a badge to open its note. The **Comments** button opens saved notes; each note can be edited or deleted,
 and its quote can be clicked to return to the passage. Notes are stored in
 localStorage per explainer, only in the current browser (no account or server
 sync). Clearing site data removes them. If interactive content has changed or

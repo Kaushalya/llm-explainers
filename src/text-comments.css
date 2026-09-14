@@ -144,3 +144,35 @@
     padding: 16px;
   }
 }
+
+.text-comments .tc-marker {
+  position: fixed;
+  z-index: 990;
+  padding: 1px 7px;
+  min-height: 22px;
+  height: 22px;
+  font-size: 12px;
+  line-height: 18px;
+  color: #102b24;
+  background: #b4ecd8;
+  border-color: #83c9b1;
+  border-radius: 5px;
+  box-shadow: 0 2px 6px #0003;
+}
+.text-comments .tc-marker:hover {
+  background: #d2ffef;
+}
+.tc-highlight {
+  position: fixed;
+  z-index: 980;
+  pointer-events: none;
+  background: #a4e6d026;
+  border-bottom: 2px solid #a4e6d0;
+}
+.text-comments .tc-comment.tc-active {
+  border-top-color: #a4e6d0;
+}
+.text-comments .tc-comment:focus-visible {
+  outline: 2px solid #a4e6d0;
+  outline-offset: 4px;
+}

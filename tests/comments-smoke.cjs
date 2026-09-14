@@ -56,10 +56,36 @@ const assert = require("node:assert/strict");
       await page
         .getByRole("button", { name: "Save comment", exact: true })
         .click();
+      await page
+        .getByRole("button", { name: "Close comments", exact: true })
+        .click();
+      await page
+        .locator(passage)
+        .first()
+        .evaluate((el) => el.scrollIntoView({ block: "center" }));
+      await page.locator(".tc-marker").waitFor();
       await page.reload();
       await page
-        .getByRole("button", { name: "Comments · 1", exact: true })
-        .click();
+        .locator(passage)
+        .first()
+        .evaluate((el) => el.scrollIntoView({ block: "center" }));
+      await page.locator(".tc-marker").waitFor();
+      await page.waitForFunction((selector) => {
+        const range = document.createRange();
+        range.selectNodeContents(document.querySelector(selector));
+        const text = range.getClientRects()[0];
+        const marker = document
+          .querySelector(".tc-marker")
+          ?.getBoundingClientRect();
+        return marker && text && Math.abs(marker.bottom - (text.top - 4)) < 2;
+      }, passage);
+      assert((await page.locator(".tc-highlight").count()) > 0);
+      await page.locator(".tc-marker").click();
+      assert(
+        await page
+          .locator(".tc-comment")
+          .evaluate((el) => el === document.activeElement),
+      );
       assert.match(
         await page.locator(".tc-comment p").innerText(),
         /A useful note/,
@@ -87,12 +113,66 @@ const assert = require("node:assert/strict");
         .getByRole("button", { name: "Comments · 1", exact: true })
         .click();
       await page.getByRole("button", { name: "Delete", exact: true }).click();
+      await page.locator(".tc-marker").waitFor({ state: "detached" });
+      assert.equal(await page.locator(".tc-highlight").count(), 0);
       await page.reload();
       await page
         .getByRole("button", { name: "Comments · 0", exact: true })
         .waitFor();
     }
     await page.goto(base + "/?explainer=diffusion");
+    const details = page.locator("#dl-training details").first();
+    const summary = details.locator("summary");
+    await summary.click();
+    await select("#dl-training .dl-equation");
+    await page
+      .getByRole("button", { name: "+ Add comment", exact: true })
+      .click();
+    await page
+      .getByLabel("New comment", { exact: true })
+      .fill("Training objective note");
+    await page
+      .getByRole("button", { name: "Save comment", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Close comments", exact: true })
+      .click();
+    await page.locator(".tc-marker").waitFor();
+    await summary.click();
+    await page.locator(".tc-marker").waitFor({ state: "detached" });
+    assert.equal(await page.locator(".tc-highlight").count(), 0);
+    await page.reload();
+    await summary.scrollIntoViewIfNeeded();
+    await page
+      .getByRole("button", { name: "Comments · 1", exact: true })
+      .waitFor();
+    assert.equal(await page.locator(".tc-marker").count(), 0);
+    await summary.click();
+    await page.locator(".tc-marker").waitFor();
+    await page.locator(".tc-marker").click();
+    await page.getByRole("button", { name: "Delete", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Close comments", exact: true })
+      .click();
+    // A comment on the summary itself remains visible when details are closed.
+    await select("#dl-training details summary");
+    await page
+      .getByRole("button", { name: "+ Add comment", exact: true })
+      .click();
+    await page.getByLabel("New comment", { exact: true }).fill("Summary note");
+    await page
+      .getByRole("button", { name: "Save comment", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Close comments", exact: true })
+      .click();
+    await summary.click();
+    await page.locator(".tc-marker").waitFor();
+    await page.locator(".tc-marker").click();
+    await page.getByRole("button", { name: "Delete", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Close comments", exact: true })
+      .click();
     await page.setViewportSize({ width: 390, height: 844 });
     await select("#dl-basics h2");
     await page
@@ -107,6 +187,18 @@ const assert = require("node:assert/strict");
     await page
       .getByRole("button", { name: "Save comment", exact: true })
       .click();
+    await page
+      .getByRole("button", { name: "Close comments", exact: true })
+      .click();
+    await page
+      .locator("#dl-basics h2")
+      .evaluate((el) => el.scrollIntoView({ block: "center" }));
+    await page.locator(".tc-marker").waitFor();
+    await page.locator(".tc-marker").click();
+    await page
+      .getByRole("button", { name: "Close comments", exact: true })
+      .click();
+    await page.screenshot({ path: "/tmp/comment-marker-mobile.png" });
     await page.goto(base + "/posts/quantization-explainer.html");
     await page
       .getByRole("button", { name: "Comments · 0", exact: true })
