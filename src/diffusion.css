@@ -771,3 +771,113 @@ body.diffusion-page:after {
     gap: 10px;
   }
 }
+
+.dl-model-table-wrap {
+  overflow-x: auto;
+  margin: 26px 0;
+  border: 1px solid var(--dl-border);
+  border-radius: 8px;
+}
+.dl-page .dl-model-table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+  font:
+    14px/1.6 system-ui,
+    sans-serif;
+  text-align: left;
+}
+.dl-model-table caption {
+  text-align: left;
+  padding: 14px 18px;
+  color: #a2b5aa;
+  background: #102219;
+}
+.dl-model-table th,
+.dl-model-table td {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--dl-border);
+  vertical-align: top;
+}
+.dl-model-table thead th {
+  color: #69efb0;
+  font-weight: 600;
+}
+.dl-model-table td {
+  color: #b7c9be;
+}
+.dl-model-table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+.dl-model-grid {
+  display: grid;
+  gap: 20px;
+}
+.dl-model-card {
+  padding: 24px;
+  border: 1px solid var(--dl-border);
+  border-radius: 10px;
+  background: #0c1912;
+  scroll-margin-top: 24px;
+}
+.dl-page .dl-model-card h3 {
+  font-size: 26px;
+  margin: 6px 0 14px;
+}
+.dl-page .dl-model-version {
+  margin: 0;
+  font-size: 13px;
+  color: var(--dl-muted);
+}
+.dl-model-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 22px;
+  padding: 0;
+  list-style: none;
+}
+.dl-model-tags li {
+  padding: 3px 9px;
+  border: 1px solid #41644e;
+  border-radius: 4px;
+  color: #69efb0;
+  font-size: 12px;
+  background: #15281e;
+}
+.dl-model-card dl {
+  margin: 0;
+}
+.dl-model-card dt {
+  color: #edf5ef;
+  font-weight: 600;
+  font-size: 15px;
+  margin-top: 14px;
+}
+.dl-model-card dd {
+  margin: 6px 0 0;
+  color: #b7c9be;
+}
+.dl-page .dl-model-trace {
+  border-left: 2px solid #69efb0;
+  padding: 12px 16px;
+  background: #14271c;
+  color: #c8edda;
+  font:
+    14px/1.8 ui-monospace,
+    monospace;
+}
+.dl-page .dl-model-caution,
+.dl-page .dl-model-footnote {
+  font-size: 14px;
+  color: var(--dl-muted);
+}
+.dl-page .dl-model-sources {
+  margin-bottom: 0;
+  font-size: 14px;
+}
+@media (max-width: 600px) {
+  .dl-model-card {
+    padding: 18px;
+  }
+}

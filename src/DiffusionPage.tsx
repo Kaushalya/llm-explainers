@@ -33,6 +33,18 @@ const sources = [
     "LLaDA2.2 · editing, block routing, and agentic RL",
     "https://huggingface.co/inclusionAI/LLaDA2.2-flash",
   ],
+  [
+    "DiffusionGemma · model card and sampling",
+    "https://ai.google.dev/gemma/docs/diffusiongemma/model_card",
+  ],
+  [
+    "DiffusionGemma · uniform-state diffusion and architecture",
+    "https://ai.google.dev/gemma/docs/diffusiongemma/explained",
+  ],
+  [
+    "Dream 7B · diffusion adaptation and training",
+    "https://arxiv.org/abs/2508.15487",
+  ],
 ];
 const sentence = "The small robot learned to fold paper cranes".split(" ");
 const order = [0, 5, 2, 6, 1, 7, 3, 4];
@@ -772,6 +784,176 @@ function Families() {
     </Experiment>
   );
 }
+const modelProfiles = [
+  {
+    id: "diffusiongemma",
+    name: "DiffusionGemma",
+    version: "26B-A4B · Gemma 4 backbone · 2026",
+    tags: ["Discrete", "Block", "MoE"],
+    corruption: "Random vocabulary tokens (uniform-state diffusion)",
+    generation: "256-token canvases; causal context + bidirectional denoising",
+    training:
+      "Adapts Gemma 4 for encoding and denoising with a shared backbone. Sparse MoE activates only part of the model per token.",
+    sampling:
+      "An entropy-bounded sampler keeps confident predictions and re-noises other positions. Adaptive stopping checks both confidence and stable predictions; completed canvases are encoded into the KV cache before the next block.",
+    example:
+      "Prompt → cached context → random-token canvas → refine → cache completed block → next canvas.",
+    takeaway:
+      "Connects discrete replacement to block generation. Revising tokens within a fixed canvas is different from inserting or deleting slots.",
+    caution:
+      "Latency depends on denoising steps, hardware, and batch size. Parallel token updates do not guarantee a speedup on every workload.",
+    refs: [8, 9],
+  },
+  {
+    id: "llada-8b",
+    name: "LLaDA-8B",
+    version: "Original dense 8B · Base / Instruct · 2025",
+    tags: ["Discrete", "Masked", "From scratch"],
+    corruption: "Absorbing [MASK] corruption at varying noise levels",
+    generation: "Bidirectional masked-token prediction and iterative revealing",
+    training:
+      "Trained from scratch with a diffusion objective based on masked-token cross-entropy. Instruction tuning keeps the prompt visible while corrupting the response.",
+    sampling:
+      "Starts from a masked response canvas and repeatedly predicts missing tokens. The sampling schedule chooses which predictions to reveal, including confidence-based choices.",
+    example:
+      "Visible prompt + [MASK] [MASK] [MASK] → predict missing positions → reveal a subset → repeat.",
+    takeaway:
+      "The guide’s masking and training labs illustrate this family. The model is still a Transformer; diffusion changes the training objective and generation procedure.",
+    caution:
+      "Original LLaDA-8B does not imply MoE or insertion/deletion editing. Later LLaDA releases add distinct techniques.",
+    refs: [0],
+  },
+  {
+    id: "dream-7b",
+    name: "Dream 7B",
+    version: "Dense 7B · autoregressive-weight adaptation · 2025",
+    tags: ["Discrete", "Masked", "AR adaptation"],
+    corruption:
+      "Masked discrete diffusion with a context-adaptive training noise schedule",
+    generation: "Parallel sequence refinement with configurable reveal order",
+    training:
+      "Initializes from pretrained autoregressive weights instead of starting from scratch. Context-adaptive token-level noise rescheduling supports the transition to diffusion training.",
+    sampling:
+      "The released sampler supports random or confidence-based generation order, including token entropy. The number of diffusion steps is configurable, trading computation for refinement.",
+    example:
+      "Pretrained AR weights → diffusion training → masked canvas → entropy-guided revealing → completed text.",
+    takeaway:
+      "Like LLaDA, this uses masked diffusion; the key contrast here is how the model is initialized and trained.",
+    caution:
+      "Dream 7B is the reference model here. Dream-Coder and DreamOn are separate releases with additional specializations.",
+    refs: [10, 6],
+  },
+  {
+    id: "llada-2-2",
+    name: "LLaDA2.2-flash",
+    version: "LLaDA2 series · MoE · 128K context · 2026",
+    tags: ["Block", "Editable", "MoE", "Agentic RL"],
+    corruption: "Diffusion generation with DELETE / INSERT edit operations",
+    generation:
+      "Block-based parallel decoding with changes to sequence structure",
+    training:
+      "L-EBPO uses rewards from agentic environments to train Levenshtein editing and error correction in multi-turn tool use.",
+    sampling:
+      "DELETE removes redundant content; INSERT creates slots to fill. Block Routing bounds MoE expert activation at the diffusion-block level. Routing experts and choosing text-block size are related implementation choices, not the same operation.",
+    example:
+      "Draft → delete a repeated word → insert a missing slot → fill and refine → continue the block.",
+    takeaway:
+      "Combines the block and editable design choices. MoE routing handles compute, while the edit operations change text structure.",
+    caution:
+      "Editing requires this model’s training and decoder support. Its behavior should not be attributed to every LLaDA model.",
+    refs: [7],
+  },
+];
+
+function ModelLandscape() {
+  return (
+    <section id="dl-models">
+      <span className="dl-kicker">06 / TECHNIQUES IN REAL MODELS</span>
+      <h2>From design choices to diffusion LMs.</h2>
+      <p>
+        Recent releases and established open-model reference points, checked
+        September 14, 2026. Compare the named versions: a family name alone does
+        not tell you its corruption process, decoding schedule, or editing
+        support.
+      </p>
+      <div
+        className="dl-model-table-wrap"
+        role="region"
+        aria-label="Diffusion model technique comparison"
+        tabIndex={0}
+      >
+        <table className="dl-model-table">
+          <caption>Model → corruption → generation</caption>
+          <thead>
+            <tr>
+              <th scope="col">Model</th>
+              <th scope="col">What changes?</th>
+              <th scope="col">How does it generate?</th>
+            </tr>
+          </thead>
+          <tbody>
+            {modelProfiles.map((model) => (
+              <tr key={model.id}>
+                <th scope="row">
+                  <a href={`#dl-model-${model.id}`}>{model.name}</a>
+                </th>
+                <td>{model.corruption}</td>
+                <td>{model.generation}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="dl-model-grid">
+        {modelProfiles.map((model) => (
+          <article
+            key={model.id}
+            id={`dl-model-${model.id}`}
+            className="dl-model-card"
+          >
+            <p className="dl-model-version">{model.version}</p>
+            <h3>{model.name}</h3>
+            <ul
+              className="dl-model-tags"
+              aria-label={`${model.name} techniques`}
+            >
+              {model.tags.map((tag) => (
+                <li key={tag}>{tag}</li>
+              ))}
+            </ul>
+            <dl>
+              <dt>Training & architecture</dt>
+              <dd>{model.training}</dd>
+              <dt>Decoding techniques</dt>
+              <dd>{model.sampling}</dd>
+            </dl>
+            <p className="dl-model-trace">{model.example}</p>
+            <p>
+              <b>Connect the ideas.</b> {model.takeaway}
+            </p>
+            <p className="dl-model-caution">
+              <b>Keep in mind.</b> {model.caution}
+            </p>
+            <p className="dl-model-sources">
+              Sources{" "}
+              {model.refs.map((n) => (
+                <Ref key={n} n={n} />
+              ))}
+            </p>
+          </article>
+        ))}
+      </div>
+      <p className="dl-model-footnote">
+        Revisit <a href="#dl-families">the five design choices</a>,{" "}
+        <a href="#dl-editing">editing operations</a>, or{" "}
+        <a href="#dl-tradeoffs">the cost model</a> to unpack these techniques.
+        Model size, MoE, and quantization describe different axes from the
+        diffusion process itself.
+      </p>
+    </section>
+  );
+}
+
 function Editing() {
   const [mode, setMode] = useState("Absorbing");
   const [step, setStep] = useState(0);
@@ -933,6 +1115,7 @@ export default function DiffusionPage() {
               "training",
               "reverse",
               "families",
+              "models",
               "editing",
               "tradeoffs",
             ].map((s, i) => (
@@ -960,7 +1143,7 @@ export default function DiffusionPage() {
               </p>
               <div className="dl-hero-foot">
                 <a href="#dl-basics">Start experimenting ↓</a>
-                <span>7 chapters · learn by changing things</span>
+                <span>8 chapters · learn by changing things</span>
               </div>
             </header>
             <section id="dl-basics">
@@ -1105,9 +1288,10 @@ export default function DiffusionPage() {
                 </article>
               </div>
             </section>
+            <ModelLandscape />
             <section id="dl-editing">
               <span className="dl-kicker">
-                06 / LEARNING TO CHANGE YOUR MIND
+                07 / LEARNING TO CHANGE YOUR MIND
               </span>
               <h2>Filling blanks is not the same as editing.</h2>
               <p>
@@ -1124,7 +1308,7 @@ export default function DiffusionPage() {
               />
             </section>
             <section id="dl-tradeoffs">
-              <span className="dl-kicker">07 / WHEN PARALLELISM PAYS</span>
+              <span className="dl-kicker">08 / WHEN PARALLELISM PAYS</span>
               <h2>Count the work, not just the rounds.</h2>
               <p>
                 AR decoding can reuse keys and values for its unchanged prefix.
@@ -1149,7 +1333,7 @@ export default function DiffusionPage() {
               <h2>The original sources</h2>
               <p>
                 Representative families, not a leaderboard. Model-specific
-                details checked September 13, 2026. All experiments on this page
+                details checked September 14, 2026. All experiments on this page
                 are local teaching simulations.
               </p>
               <ol>

@@ -51,7 +51,7 @@ export const explainers: Explainer[] = [
       "Build an intuition for corruption, denoising, bidirectional attention, editing, and the real cost of parallel token generation.",
     href: "/?explainer=diffusion",
     format: "LEARN BY CHANGING",
-    chapters: "7 chapters",
+    chapters: "8 chapters",
     accent: "cyan",
     concepts: ["denoising", "attention", "editing"],
   },
