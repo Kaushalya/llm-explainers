@@ -442,6 +442,38 @@ function Reverse() {
 const families = [
   {
     name: "Continuous",
+    scenario:
+      "Represent “The cat sat” as vectors, perturb them, then recover words.",
+    stages: [
+      {
+        tokens: ["e(The)", "e(cat)", "e(sat)"],
+        note: "Each word starts as a learned vector, not a token ID.",
+        kind: "vector",
+      },
+      {
+        tokens: ["e(The) + ε₁", "e(cat) + ε₂", "e(sat) + ε₃"],
+        note: "Gaussian noise moves the vectors away from their clean positions.",
+        kind: "noisy",
+      },
+      {
+        tokens: ["ê₁", "ê₂", "ê₃"],
+        note: "Repeated reverse steps estimate clean word vectors.",
+        kind: "vector",
+      },
+      {
+        tokens: ["The", "cat", "sat"],
+        note: "Map the recovered vectors back to vocabulary tokens.",
+        kind: "clean",
+      },
+    ],
+    pros: [
+      "Smooth vectors allow gradient-based guidance toward attributes such as syntax.",
+      "Multiple positions can be refined together across the sequence.",
+    ],
+    cons: [
+      "Continuous vectors still need to map back to discrete words.",
+      "Repeated denoising and guidance calls add inference cost.",
+    ],
     tag: "WHAT IS CORRUPTED?",
     example: "Diffusion-LM",
     flow: [
@@ -451,12 +483,42 @@ const families = [
       "round to tokens",
     ],
     text: "Add continuous noise to word embeddings, then learn to denoise and map vectors back to discrete words. Gradients can guide the trajectory toward desired attributes.",
-    trade:
-      "Continuous geometry supports controllable generation; converting smooth vectors into discrete, coherent text is a central challenge.",
     ref: 1,
   },
   {
     name: "Discrete",
+    scenario:
+      "A toy token-replacement process corrupts “The cat sat” and learns to reverse it.",
+    stages: [
+      {
+        tokens: ["The", "cat", "sat"],
+        note: "The state is a sequence of vocabulary categories.",
+        kind: "clean",
+      },
+      {
+        tokens: ["blue", "bus", "ran"],
+        note: "Sample replacements using a chosen transition rule.",
+        kind: "noisy",
+      },
+      {
+        tokens: ["The", "cat", "ran"],
+        note: "Learned reverse updates move probability toward plausible tokens.",
+        kind: "mixed",
+      },
+      {
+        tokens: ["The", "cat", "sat"],
+        note: "The result is already discrete: no vector-to-word rounding.",
+        kind: "clean",
+      },
+    ],
+    pros: [
+      "Works directly with categorical tokens, avoiding an embedding-rounding step.",
+      "Transition rules can express replacement, structured neighbors, or masking.",
+    ],
+    cons: [
+      "The corruption rule and reverse parameterization must be chosen together.",
+      "Large-vocabulary transition computations can be costly without useful structure.",
+    ],
     tag: "WHAT IS CORRUPTED?",
     example: "D3PM · SEDD",
     flow: [
@@ -466,12 +528,42 @@ const families = [
       "token IDs",
     ],
     text: "Corrupt categorical states directly. D3PM supports structured transition matrices, including masking. SEDD learns ratios of noisy-data probabilities with a score-entropy objective.",
-    trade:
-      "Avoids rounding embeddings to words. The transition process and its parameterization determine which reverse updates are possible.",
     ref: 2,
   },
   {
     name: "Masked",
+    scenario:
+      "Fill two holes in “The [MASK] sat on [MASK]” using context on both sides.",
+    stages: [
+      {
+        tokens: ["The", "cat", "sat", "on", "mat"],
+        note: "Begin with clean text for this corruption-and-recovery example.",
+        kind: "clean",
+      },
+      {
+        tokens: ["The", "[MASK]", "sat", "on", "[MASK]"],
+        note: "Mask selected positions while retaining the surrounding words.",
+        kind: "mixed",
+      },
+      {
+        tokens: ["The", "cat", "sat", "on", "[MASK]"],
+        note: "Predict missing words and reveal a subset of positions.",
+        kind: "mixed",
+      },
+      {
+        tokens: ["The", "cat", "sat", "on", "mat"],
+        note: "Repeat until the canvas is filled. Basic sampling keeps revealed words fixed.",
+        kind: "clean",
+      },
+    ],
+    pros: [
+      "Visible context on both sides makes infilling natural.",
+      "Several masked positions can be predicted in a single model call.",
+    ],
+    cons: [
+      "Basic absorbing-mask sampling cannot revise a revealed mistake.",
+      "A fixed canvas needs a length or stopping policy; parallel predictions still need refinement.",
+    ],
     tag: "A DISCRETE SPECIAL CASE",
     example: "MDLM · LLaDA · Dream",
     flow: [
@@ -481,12 +573,42 @@ const families = [
       "reveal and repeat",
     ],
     text: "An absorbing mask replaces tokens. MDLM simplifies the objective; LLaDA scales masked diffusion from scratch. Dream instead adapts pretrained autoregressive weights.",
-    trade:
-      "Bidirectional context supports infilling. Basic sampling fixes revealed tokens, and a fixed output canvas requires a length or stopping policy.",
     ref: 4,
   },
   {
     name: "Block",
+    scenario:
+      "Keep “The cat” fixed, then generate “sat on mat” as the next block.",
+    stages: [
+      {
+        tokens: ["The", "cat"],
+        note: "This completed prefix is fixed and available to the next block.",
+        kind: "clean",
+      },
+      {
+        tokens: ["The", "cat", "│", "[MASK]", "[MASK]", "[MASK]"],
+        note: "Only the new block is noisy; the divider marks the block boundary.",
+        kind: "mixed",
+      },
+      {
+        tokens: ["The", "cat", "│", "sat", "on", "mat"],
+        note: "Refine the three new positions together, potentially over several calls.",
+        kind: "mixed",
+      },
+      {
+        tokens: ["The", "cat", "sat", "on", "mat", "│", "…"],
+        note: "Commit this block, stream it, and start the next one.",
+        kind: "clean",
+      },
+    ],
+    pros: [
+      "Completed blocks can be streamed before the entire response is ready.",
+      "A fixed prefix can reuse its KV cache under block-causal attention.",
+    ],
+    cons: [
+      "Later blocks wait for earlier blocks, limiting whole-sequence parallelism.",
+      "Each block still needs denoising calls; block size changes the latency–quality tradeoff.",
+    ],
     tag: "HOW IS GENERATION ORGANIZED?",
     example: "BD3-LM · LLaDA2 series",
     flow: [
@@ -496,12 +618,42 @@ const families = [
       "append and repeat",
     ],
     text: "Model blocks autoregressively while denoising positions inside a block together. Block size bridges fine-grained sequential generation and broad parallel prediction.",
-    trade:
-      "Can stream completed blocks and cache a fixed prefix under block-causal attention. Each block still needs refinement; later blocks wait for earlier ones.",
     ref: 5,
   },
   {
     name: "Editable",
+    scenario:
+      "Repair “The cat cat on mat” by removing a duplicate and inserting a missing verb.",
+    stages: [
+      {
+        tokens: ["The", "cat", "cat", "on", "mat"],
+        note: "The draft has both a redundant word and a missing word.",
+        kind: "noisy",
+      },
+      {
+        tokens: ["The", "cat", "on", "mat"],
+        note: "Delete the duplicate “cat”: the sequence shrinks from five slots to four.",
+        kind: "mixed",
+      },
+      {
+        tokens: ["The", "cat", "[MASK]", "on", "mat"],
+        note: "Insert a new slot after “cat”: the sequence grows again.",
+        kind: "mixed",
+      },
+      {
+        tokens: ["The", "cat", "sat", "on", "mat"],
+        note: "Fill the inserted slot with “sat” and refine the result.",
+        kind: "clean",
+      },
+    ],
+    pros: [
+      "Insertion and deletion can repair structure, not just replace a wrong token.",
+      "The canvas can change length instead of staying fixed throughout decoding.",
+    ],
+    cons: [
+      "Requires a model trained for editing and a decoder that supports its edit operations.",
+      "Additional edit-and-refine rounds add work and need a stopping policy.",
+    ],
     tag: "CAN THE CANVAS CHANGE?",
     example: "LLaDA2.2",
     flow: [
@@ -511,8 +663,6 @@ const families = [
       "fill and refine",
     ],
     text: "LLaDA2.2 adds DELETE and INSERT control tokens, allowing changes to sequence structure. Its L-EBPO training uses agentic rewards to improve editing and error correction.",
-    trade:
-      "Changing length can repair more than a wrong word. Editing needs suitable training and decoding support; it is not automatic in every diffusion LM.",
     ref: 7,
   },
 ];
@@ -535,14 +685,6 @@ function Families() {
       <article className="dl-family" aria-live="polite">
         <small>{f.tag}</small>
         <h3>{f.example}</h3>
-        <div className="dl-flow">
-          {f.flow.map((s, i) => (
-            <span key={s}>
-              {i > 0 ? "→ " : ""}
-              {s}
-            </span>
-          ))}
-        </div>
         <p>
           {f.text} <Ref n={f.ref} />
           {index === 1 && <Ref n={3} />}
@@ -553,9 +695,74 @@ function Families() {
             </>
           )}
         </p>
-        <p>
-          <b>Tradeoff.</b> {f.trade}
-        </p>
+        <figure
+          className="dl-design-diagram"
+          aria-label={`${f.name} design diagram`}
+        >
+          <figcaption>
+            <b>Worked example</b>
+            <span>{f.scenario}</span>
+          </figcaption>
+          <ol className="dl-design-stages">
+            {f.stages.map((stage, i) => (
+              <li key={`${f.name}-${i}`}>
+                <span className="dl-stage-number" aria-hidden="true">
+                  {i + 1}
+                </span>
+                <div className="dl-stage-content">
+                  <h4>{f.flow[i]}</h4>
+                  <div
+                    className={`dl-design-tokens ${stage.kind}`}
+                    aria-label="Sequence state"
+                  >
+                    {stage.tokens.map((token, j) => (
+                      <span
+                        key={j}
+                        className={
+                          token === "[MASK]"
+                            ? "is-mask"
+                            : token === "│"
+                              ? "is-divider"
+                              : ""
+                        }
+                      >
+                        {token}
+                      </span>
+                    ))}
+                  </div>
+                  <p>{stage.note}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+          <p className="dl-example-note">
+            Illustrative states, not a model run. Actual samples can differ;
+            words stand in for tokens.{" "}
+            {index < 3
+              ? "Corruption is shown to explain training; generation starts from noise or masks, with any supplied context kept visible."
+              : index === 4
+                ? "This shows the edit operations conceptually, not the model’s literal control-token trace."
+                : "The block boundary is a decoding choice, not punctuation in the generated text."}
+          </p>
+        </figure>
+        <div className="dl-design-tradeoffs">
+          <section aria-label={`${f.name} pros`} className="dl-design-pros">
+            <h4>Pros</h4>
+            <ul>
+              {f.pros.map((pro) => (
+                <li key={pro}>{pro}</li>
+              ))}
+            </ul>
+          </section>
+          <section aria-label={`${f.name} cons`} className="dl-design-cons">
+            <h4>Cons</h4>
+            <ul>
+              {f.cons.map((con) => (
+                <li key={con}>{con}</li>
+              ))}
+            </ul>
+          </section>
+        </div>
       </article>
       <p>
         These categories overlap: masked diffusion is discrete; block generation
