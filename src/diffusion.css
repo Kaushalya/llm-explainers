@@ -273,6 +273,41 @@ body.diffusion-page:after {
   overflow-wrap: anywhere;
   border-radius: 4px;
 }
+.dl-page .dl-edit-training {
+  margin: 24px 0;
+  padding: 4px 0 4px 20px;
+  border-top: 0;
+  border-left: 2px solid var(--dl-green);
+}
+.dl-edit-training h4 {
+  margin: 12px 0;
+  color: #d3edda;
+  font-size: 18px;
+}
+.dl-edit-training p:last-child {
+  margin-bottom: 12px;
+}
+.dl-training-equation {
+  margin-top: 12px;
+  padding: 24px 18px;
+  overflow-x: auto;
+  overflow-wrap: normal;
+}
+.dl-training-equation math {
+  width: max-content;
+  min-width: 100%;
+  margin: 0;
+  font-family: math;
+  font-size: clamp(18px, 2.5vw, 24px);
+}
+@media (max-width: 480px) {
+  .dl-training-equation {
+    padding: 20px 12px;
+  }
+  .dl-training-equation math {
+    font-size: 16px;
+  }
+}
 .dl-page details {
   border-bottom: 1px solid var(--dl-border);
   padding: 16px 0;
@@ -844,6 +879,142 @@ body.diffusion-page:after {
   color: #69efb0;
   font-size: 12px;
   background: #15281e;
+}
+.dl-model-details summary {
+  font-weight: 600;
+}
+.dl-gemma-architecture {
+  margin: 20px 0;
+  padding: 20px;
+  border: 1px solid var(--dl-border);
+  border-radius: 8px;
+  background: #080f0b;
+}
+.dl-gemma-architecture figcaption {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 24px;
+}
+.dl-gemma-architecture figcaption strong {
+  color: var(--dl-green);
+}
+.dl-gemma-architecture figcaption span,
+.dl-gemma-node span,
+.dl-gemma-loop span,
+.dl-gemma-commit span {
+  font-size: 14px;
+  line-height: 1.55;
+}
+.dl-gemma-lanes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 70px minmax(0, 1fr);
+  align-items: start;
+}
+.dl-gemma-lane {
+  min-width: 0;
+}
+.dl-gemma-node,
+.dl-gemma-loop,
+.dl-gemma-commit {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid #385246;
+  border-radius: 6px;
+  background: #112019;
+}
+.dl-gemma-node small,
+.dl-gemma-loop small,
+.dl-gemma-commit small {
+  color: var(--dl-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.dl-gemma-node b,
+.dl-gemma-loop b,
+.dl-gemma-commit b {
+  color: #edf5ef;
+  font-size: 16px;
+  line-height: 1.4;
+}
+.dl-gemma-backbone {
+  border-color: var(--dl-green);
+  background: #133023;
+}
+.dl-gemma-cache {
+  border-color: #94bce0;
+}
+.dl-gemma-arrow {
+  padding: 10px 0;
+  text-align: center;
+  color: var(--dl-green);
+  font-size: 22px;
+}
+.dl-gemma-arrow span {
+  display: block;
+  color: var(--dl-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.dl-gemma-bridge {
+  align-self: center;
+  padding: 4px;
+  text-align: center;
+  color: #b5d8f6;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.dl-gemma-bridge-arrow {
+  display: block;
+  font-size: 32px;
+}
+.dl-gemma-slots {
+  color: var(--dl-green);
+  font-size: 16px;
+  white-space: nowrap;
+}
+.dl-gemma-loop {
+  margin-top: 14px;
+  border: 1px dashed #d5bb7b;
+  background: #242217;
+}
+.dl-gemma-commit {
+  text-align: center;
+}
+@media (max-width: 1100px) {
+  .dl-gemma-lanes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dl-gemma-bridge {
+    padding: 12px 0;
+  }
+  .dl-gemma-bridge-arrow {
+    transform: rotate(90deg);
+  }
+}
+@media (max-width: 480px) {
+  .dl-gemma-architecture {
+    padding: 12px;
+  }
+  .dl-gemma-node,
+  .dl-gemma-loop,
+  .dl-gemma-commit {
+    padding: 12px;
+  }
+}
+.dl-model-deep-dive {
+  padding-top: 8px;
+}
+.dl-model-deep-dive h4 {
+  margin: 28px 0 12px;
+  color: #edf5ef;
+  font-size: 19px;
+  line-height: 1.4;
+}
+.dl-model-deep-dive .dl-model-comparison {
+  padding: 4px 16px;
+  border-left: 2px solid var(--dl-green);
+  background: #080f0b;
 }
 .dl-model-card dl {
   margin: 0;

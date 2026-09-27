@@ -45,6 +45,15 @@ const sources = [
     "Dream 7B · diffusion adaptation and training",
     "https://arxiv.org/abs/2508.15487",
   ],
+  [
+    "LLaDA2.2 · technical report, editing supervision and L-EBPO (§3)",
+    "https://github.com/inclusionAI/LLaDA2.X/blob/main/LLaDA2_2_tech_report.pdf",
+  ],
+  [
+    "DiffusionGemma · technical report, architecture and training (§3–5)",
+    "https://arxiv.org/html/2608.00146v1",
+  ],
+  ["BERT · masked language modeling", "https://arxiv.org/abs/1810.04805"],
 ];
 const sentence = "The small robot learned to fold paper cranes".split(" ");
 const order = [0, 5, 2, 6, 1, 7, 3, 4];
@@ -372,10 +381,32 @@ function Training() {
       </p>
       <details>
         <summary>Open the training objective</summary>
-        <div className="dl-equation">
-          L = E<sub>x₀,t,xₜ</sub> [ −(1/t) Σ<sub>i masked</sub> log p
-          <sub>θ</sub>(x₀ⁱ | xₜ) ]
-        </div>
+        <div
+          className="dl-equation dl-training-equation"
+          tabIndex={0}
+          role="region"
+          aria-label="Training objective; scroll horizontally if needed"
+          // Static MathML keeps the formula accessible and uses native math layout.
+          dangerouslySetInnerHTML={{
+            __html: `
+            <math xmlns="http://www.w3.org/1998/Math/MathML" display="block"
+              aria-label="L equals the expectation over x zero, t, and x t of negative one over t times the sum over masked positions i of log p theta of x zero superscript i given x t">
+              <mi>ℒ</mi><mo>=</mo>
+              <msub><mi>𝔼</mi><mrow>
+                <msub><mi>x</mi><mn>0</mn></msub><mo>,</mo><mi>t</mi><mo>,</mo><msub><mi>x</mi><mi>t</mi></msub>
+              </mrow></msub>
+              <mrow><mo>[</mo><mo>−</mo>
+                <mfrac><mn>1</mn><mi>t</mi></mfrac>
+                <munder><mo>∑</mo><mrow><mi>i</mi><mspace width="0.25em"/><mtext>masked</mtext></mrow></munder>
+                <mi mathvariant="normal">log</mi><mo>⁡</mo><mspace width="0.15em"/>
+                <msub><mi>p</mi><mi>θ</mi></msub>
+                <mrow><mo>(</mo><msubsup><mi>x</mi><mn>0</mn><mi>i</mi></msubsup>
+                  <mo>|</mo><msub><mi>x</mi><mi>t</mi></msub><mo>)</mo></mrow>
+              <mo>]</mo></mrow>
+            </math>
+          `,
+          }}
+        />
         <p>
           For a linear masking schedule, sample t uniformly from (0, 1], mask
           each token with probability t, and compute cross-entropy on masked
@@ -643,13 +674,13 @@ const families = [
         kind: "noisy",
       },
       {
-        tokens: ["The", "cat", "on", "mat"],
-        note: "Delete the duplicate “cat”: the sequence shrinks from five slots to four.",
+        tokens: ["The", "cat", "on", "mat", "[MASK]"],
+        note: "Delete the duplicate “cat”, shift left, and pad the block with a mask to keep five positions.",
         kind: "mixed",
       },
       {
         tokens: ["The", "cat", "[MASK]", "on", "mat"],
-        note: "Insert a new slot after “cat”: the sequence grows again.",
+        note: "INSERT at “on” creates a mask before it. Trim the trailing padding to keep five positions.",
         kind: "mixed",
       },
       {
@@ -660,7 +691,7 @@ const families = [
     ],
     pros: [
       "Insertion and deletion can repair structure, not just replace a wrong token.",
-      "The canvas can change length instead of staying fixed throughout decoding.",
+      "Tokens can shift within a block; LLaDA2.2 pads or trims the result to keep the block length fixed.",
     ],
     cons: [
       "Requires a model trained for editing and a decoder that supports its edit operations.",
@@ -674,8 +705,8 @@ const families = [
       "insert slots",
       "fill and refine",
     ],
-    text: "LLaDA2.2 adds DELETE and INSERT control tokens, allowing changes to sequence structure. Its L-EBPO training uses agentic rewards to improve editing and error correction.",
-    ref: 7,
+    text: "LLaDA2.2 learns to predict DELETE and INSERT alongside ordinary tokens. Training teaches when to edit; the decoder executes those edits within a fixed-length diffusion block.",
+    ref: 11,
   },
 ];
 function Families() {
@@ -707,6 +738,66 @@ function Families() {
             </>
           )}
         </p>
+        {index === 4 && (
+          <section
+            className="dl-edit-training"
+            aria-label="How editing is learned and applied"
+          >
+            <h4>What teaches the model to edit?</h4>
+            <p>
+              <strong>1. Turn draft errors into training labels.</strong> The
+              first training round predicts ordinary target tokens. Later rounds
+              align the updated draft with the target using a longest common
+              subsequence (LCS): matching tokens act as anchors. Aligned
+              positions receive the correct word as their keep or substitute
+              target; surplus draft tokens receive DELETE; a missing span
+              assigns INSERT to the following anchor. Labels are recomputed
+              after each round. <Ref n={11} />
+            </p>
+            <p>
+              <strong>
+                2. Train probabilities over words and edit actions.
+              </strong>{" "}
+              Think of each supervised label as a classification target: its
+              negative-log-probability penalty grows when the model gives the
+              correct action low probability. For the example below, predicting
+              DELETE at the duplicate “cat” is rewarded by that supervision;
+              predicting another word there is penalized. This explains the
+              supervision mechanism, rather than specifying the full weighted
+              diffusion loss. It encourages correct edits without guaranteeing
+              them.
+            </p>
+            <p>
+              <strong>3. Make the decoder execute the action.</strong> DELETE
+              removes a token and shifts later tokens left. INSERT creates a
+              [MASK] immediately before the current token; a later pass fills
+              it. Padding or tail truncation restores the block’s original size.
+              Only one insertion label per gap is assigned in a round, so longer
+              omissions need repeated rounds. These rules enforce what an action
+              does. <Ref n={11} />
+            </p>
+            <h4>How does task success shape those edits?</h4>
+            <p>
+              L-EBPO (Levenshtein Editing ELBO-based Block-level Policy
+              Optimization) extends reinforcement learning to the same
+              vocabulary-plus-edits action space. It estimates policy changes
+              with an ELBO-based likelihood proxy. Because edit-control tokens
+              disappear from the final text, LCS alignment recovers edit labels
+              for that estimate, letting structural decisions receive a training
+              signal. Rewards combine tool execution correctness, output format
+              validity, and task completion. <Ref n={11} />
+            </p>
+            <p>
+              Block diffusion supplies preceding clean context and noisy context
+              inside the current block. Multi-turn training also masks later
+              turns within a block to prevent future tool responses from leaking
+              into an earlier prediction. Good rewards and valid attention
+              boundaries help teach useful repairs, but neither guarantees a
+              correct tool call.
+              <Ref n={11} />
+            </p>
+          </section>
+        )}
         <figure
           className="dl-design-diagram"
           aria-label={`${f.name} design diagram`}
@@ -865,6 +956,239 @@ const modelProfiles = [
   },
 ];
 
+function DiffusionGemmaArchitecture() {
+  return (
+    <figure
+      className="dl-gemma-architecture"
+      aria-label="DiffusionGemma architecture and generation loop"
+    >
+      <figcaption>
+        <strong>DiffusionGemma · context once, canvas repeatedly</strong>
+        <span>
+          One Gemma 4 MoE backbone, shared weights θ across both roles.
+        </span>
+      </figcaption>
+      <div className="dl-gemma-lanes">
+        <div className="dl-gemma-lane">
+          <div className="dl-gemma-node">
+            <small>CONTEXT INPUT</small>
+            <b>Prompt + completed blocks</b>
+            <span>Fixed history · text / multimodal prompt</span>
+          </div>
+          <div className="dl-gemma-arrow" aria-hidden="true">
+            ↓
+          </div>
+          <div className="dl-gemma-node dl-gemma-backbone">
+            <small>SHARED BACKBONE θ · ENCODER ROLE</small>
+            <b>Causal attention</b>
+            <span>Each context position sees its prefix.</span>
+          </div>
+          <div className="dl-gemma-arrow">
+            ↓ <span>encode once; append per block</span>
+          </div>
+          <div className="dl-gemma-node dl-gemma-cache">
+            <small>REUSABLE MEMORY H</small>
+            <b>Context KV cache</b>
+            <span>Reused throughout this canvas’s denoising.</span>
+          </div>
+        </div>
+        <div className="dl-gemma-bridge">
+          <span className="dl-gemma-bridge-arrow" aria-hidden="true">
+            →
+          </span>
+          <span>Decoder attends to cached context</span>
+        </div>
+        <div className="dl-gemma-lane dl-gemma-active">
+          <div className="dl-gemma-node">
+            <small>CANVAS INPUT xₜ</small>
+            <b>256 token positions</b>
+            <span>Start with random vocabulary tokens.</span>
+            <div className="dl-gemma-slots" aria-hidden="true">
+              □ ↔ □ ↔ □ ↔ … ↔ □
+            </div>
+          </div>
+          <div className="dl-gemma-arrow" aria-hidden="true">
+            ↓
+          </div>
+          <div className="dl-gemma-node dl-gemma-backbone">
+            <small>SHARED BACKBONE θ · DECODER ROLE</small>
+            <b>Bidirectional attention</b>
+            <span>
+              Every canvas position sees the whole canvas + H +
+              self-conditioning zₜ.
+            </span>
+          </div>
+          <div className="dl-gemma-arrow">
+            ↓ <span>clean-token probabilities at all positions</span>
+          </div>
+          <div className="dl-gemma-node">
+            <small>SAMPLER · NO SEPARATE LANGUAGE MODEL</small>
+            <b>Entropy-bounded update</b>
+            <span>
+              Select confident predictions; replace the rest with fresh noise.
+            </span>
+          </div>
+          <div className="dl-gemma-loop">
+            <b>↺ Refine the same canvas</b>
+            <span>Updated tokens → next canvas input.</span>
+            <span>
+              Probabilities × embeddings → feedforward layer → next zₜ.
+            </span>
+            <small>
+              Self-conditioning preserves information between passes. Previously
+              chosen canvas tokens can still change.
+            </small>
+          </div>
+        </div>
+      </div>
+      <div className="dl-gemma-arrow">
+        ↓ <span>when confident and stable, or at the step limit</span>
+      </div>
+      <div className="dl-gemma-commit">
+        <b>Commit the completed block</b>
+        <span>
+          ↰ Run it through the causal encoder → append its KV entries → start a
+          new random canvas.
+        </span>
+        <small>
+          Completed blocks are frozen. Only the current canvas is revised.
+        </small>
+      </div>
+      <p className="dl-example-note">
+        Shared weights mean two attention modes of one backbone, not two
+        independently trained models. Arrows show information flow; the
+        refinement loop runs multiple forward passes. <Ref n={12} />
+      </p>
+    </figure>
+  );
+}
+
+function DiffusionGemmaDetails() {
+  return (
+    <details className="dl-model-details">
+      <summary>
+        Inside DiffusionGemma: training, architecture & masked-model comparison
+      </summary>
+      <div className="dl-model-deep-dive">
+        <h4>What makes it different from a masked language model?</h4>
+        <p>
+          Bidirectional attention alone does not define diffusion. BERT learns
+          to reconstruct selected tokens in mostly visible text; that
+          pretraining objective does not itself specify a sampler for generating
+          a complete response from noise. BERT also uses some random
+          replacements, so the distinction is more than the presence of a [MASK]
+          symbol. <Ref n={13} />
+        </p>
+        <dl className="dl-model-comparison">
+          <dt>BERT-style masked LM</dt>
+          <dd>
+            Recover selected hidden originals using context on both sides;
+            primarily a representation-learning objective. <Ref n={13} />
+          </dd>
+          <dt>Absorbing masked diffusion</dt>
+          <dd>
+            Train across noise levels and generate from masks. In the basic
+            sampler, revealed tokens stay fixed; remasking variants can relax
+            that rule. <Ref n={4} />
+          </dd>
+          <dt>DiffusionGemma</dt>
+          <dd>
+            Start with random vocabulary tokens. Repeatedly revise the whole
+            active canvas, including earlier guesses. Uniform noise makes every
+            visible token potentially wrong. <Ref n={9} />
+          </dd>
+        </dl>
+
+        <h4>Training objective: reconstruct the clean canvas</h4>
+        <p>
+          Sample a noise level t uniformly from [0, 1]. Independently replace
+          each canvas token with a uniformly random vocabulary token with
+          probability t. Train against the original tokens using the report’s
+          denoising loss:
+          <Ref n={12} />
+        </p>
+        <div
+          className="dl-equation dl-training-equation"
+          role="region"
+          aria-label="DiffusionGemma denoising loss; scroll horizontally if needed"
+          tabIndex={0}
+          dangerouslySetInnerHTML={{
+            __html: `
+            <math xmlns="http://www.w3.org/1998/Math/MathML" display="block"
+              aria-label="L theta equals negative sum from i equals one to C of log p theta of x zero superscript i given x t, z t, and H">
+              <mi>ℒ</mi><mo stretchy="false">(</mo><mi>θ</mi><mo stretchy="false">)</mo><mo>=</mo><mo>−</mo>
+              <munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>C</mi></munderover>
+              <mi mathvariant="normal">log</mi><mo>⁡</mo><mspace width="0.15em"/>
+              <msub><mi>p</mi><mi>θ</mi></msub><mo stretchy="false">(</mo>
+              <msubsup><mi>x</mi><mn>0</mn><mi>i</mi></msubsup><mo>|</mo>
+              <msub><mi>x</mi><mi>t</mi></msub><mo>,</mo>
+              <msub><mi>z</mi><mi>t</mi></msub><mo>,</mo><mi>H</mi><mo stretchy="false">)</mo>
+            </math>
+          `,
+          }}
+        />
+        <p>
+          C = 256 positions; x₀ is clean text, xₜ the corrupted canvas, H the
+          cached clean context, and zₜ feedback from prior predictions. The sum
+          covers every position, corrupted or unchanged. Unlike the masked
+          objective in the training lab, this loss has no masked-only sum or 1/t
+          factor. Low probability for the correct original incurs a larger
+          penalty.
+          <Ref n={12} />
+        </p>
+        <p>
+          Adaptation starts from Gemma 4 weights. Supervised denoising is
+          followed by joint sampler distillation and reinforcement learning:
+          distillation reduces required refinement steps, while rewards improve
+          output quality. The downstream fine-tuning toolkit additionally
+          combines causal encoder and denoising decoder losses. <Ref n={12} />
+        </p>
+
+        <h4>One backbone, two attention modes</h4>
+        <DiffusionGemmaArchitecture />
+        <p>
+          The shared Transformer runs causally to encode the prompt and
+          completed blocks into a KV cache. During denoising, all 256 canvas
+          positions can attend to one another and the cached context. After
+          completion, the canvas is encoded and cached before the next block
+          begins. This reuses context computation while permitting parallel
+          refinement. <Ref n={9} />
+        </p>
+        <p>
+          The 26B-A4B name describes a sparse MoE: approximately 25.2B total
+          parameters and 3.8B active, with eight selected experts out of 128
+          plus one shared expert. The model supports multimodal inputs and up to
+          256K context. Sparse activation reduces per-token computation; it does
+          not mean only 3.8B parameters need storage. <Ref n={8} />
+        </p>
+        <p>
+          Self-conditioning carries the previous probability distribution
+          through the embedding table into the next iteration, preserving
+          uncertainty beyond the sampled tokens. <Ref n={9} />
+        </p>
+
+        <h4>Why these sampling choices?</h4>
+        <p>
+          Entropy-bounded sampling selects low-uncertainty predictions under a
+          shared budget and re-noises the rest. Temperature falls from 0.8 to
+          0.4. The recommended sampler caps refinement at 48 steps and stops
+          early only when average entropy is below 0.005 and the most likely
+          tokens agree across two consecutive steps. Confidence and stability
+          determine when further work can be skipped. <Ref n={8} />
+        </p>
+        <p>
+          Parallel canvas processing targets low-batch latency by doing more
+          work per weight load. A 256-token canvas still takes multiple passes;
+          it is not 256 finished tokens in one pass. <Ref n={9} /> Earlier
+          completed blocks remain frozen: revision is local to the active
+          canvas.
+          <Ref n={12} />
+        </p>
+      </div>
+    </details>
+  );
+}
+
 function ModelLandscape() {
   return (
     <section id="dl-models">
@@ -934,6 +1258,7 @@ function ModelLandscape() {
             <p className="dl-model-caution">
               <b>Keep in mind.</b> {model.caution}
             </p>
+            {model.id === "diffusiongemma" && <DiffusionGemmaDetails />}
             <p className="dl-model-sources">
               Sources{" "}
               {model.refs.map((n) => (
